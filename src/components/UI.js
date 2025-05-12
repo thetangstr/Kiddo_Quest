@@ -1,5 +1,7 @@
 import React from 'react';
 import * as Icons from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Trophy, Star, Award, Medal, Crown, Shield, Gift, Sparkles, Lock } from 'lucide-react';
 
 // Button Component
 export const Button = ({ 
@@ -175,49 +177,213 @@ export const Card = ({
   );
 };
 
-// XP Progress Bar Component
+// Enhanced XP Progress Bar Component with animations and gamification elements
 export const XPProgressBar = ({ 
-  currentXP, 
-  nextLevelXP = 30 
+  progress = 0, 
+  level = 1, 
+  showLevel = true 
 }) => {
-  const progress = Math.min(100, (currentXP / nextLevelXP) * 100);
+  // Ensure progress is between 0 and 100
+  const normalizedProgress = Math.min(100, Math.max(0, progress));
   
-  // Generate star icons based on progress
-  const renderStars = () => {
-    const totalStars = 5;
-    const filledStars = Math.floor((progress / 100) * totalStars);
-    
-    return Array(totalStars).fill(0).map((_, index) => (
-      <span key={index} className={`text-2xl ${index < filledStars ? 'text-yellow-400' : 'text-gray-300'}`}>
-        ★
-      </span>
-    ));
+  // Define milestone points on the progress bar
+  const milestones = [20, 40, 60, 80, 100];
+  
+  // Calculate how many milestones have been reached
+  const reachedMilestones = milestones.filter(milestone => normalizedProgress >= milestone).length;
+  
+  // Animation variants for framer-motion
+  const progressVariants = {
+    initial: { width: 0, opacity: 0.5 },
+    animate: { 
+      width: `${normalizedProgress}%`, 
+      opacity: 1,
+      transition: { 
+        duration: 1.5, 
+        ease: "easeOut" 
+      }
+    }
   };
   
+  const starVariants = {
+    unfilled: { scale: 1, opacity: 0.5, color: "#D1D5DB" },
+    filled: { 
+      scale: [1, 1.3, 1], 
+      opacity: 1, 
+      color: "#FBBF24",
+      transition: { 
+        duration: 0.5,
+        repeat: 1,
+        repeatType: "reverse" 
+      }
+    }
+  };
+  
+  const renderStars = () => {
+    const totalStars = 5;
+    const filledStars = Math.floor((normalizedProgress / 100) * totalStars);
+    
+    return Array(totalStars).fill(0).map((_, index) => {
+      const isFilled = index < filledStars;
+      const isLastFilled = index === filledStars - 1;
+      const milestone = milestones[index];
+      const isReached = normalizedProgress >= milestone;
+      
+      return (
+        <div key={index} className="relative flex flex-col items-center">
+          <motion.span 
+            className={`text-2xl ${isFilled ? 'text-yellow-400' : 'text-gray-300'}`}
+            variants={starVariants}
+            initial="unfilled"
+            animate={isFilled ? "filled" : "unfilled"}
+            whileHover={{ scale: 1.2 }}
+          >
+            ★
+          </motion.span>
+          
+          {/* Milestone label */}
+          <motion.div 
+            className={`text-xs font-bold mt-1 ${isReached ? 'text-purple-600' : 'text-gray-400'}`}
+            animate={isReached ? { y: [0, -3, 0], scale: [1, 1.1, 1] } : {}}
+            transition={{ duration: 1, repeat: isLastFilled ? Infinity : 0, repeatType: "reverse" }}
+          >
+            {milestone}%
+          </motion.div>
+        </div>
+      );
+    });
+  };
+
   return (
-    <div className="w-full">
-      <div className="flex justify-between items-center mb-2">
-        <div className="flex space-x-1">
-          {renderStars()}
-        </div>
-        <div className="text-sm font-bold">
-          <span className="text-pink-600">{currentXP}</span>
-          <span className="text-gray-500"> / </span>
-          <span className="text-purple-600">{nextLevelXP}</span>
-          <span className="text-yellow-500 ml-1">★</span>
-        </div>
-      </div>
-      <div className="w-full bg-gray-200 rounded-full h-4 shadow-inner overflow-hidden border border-gray-300">
-        <div 
-          className="bg-gradient-to-r from-pink-400 to-purple-500 h-4 rounded-full transition-all duration-500 ease-out flex items-center justify-end pr-2"
-          style={{ width: `${progress}%` }}
+    <motion.div 
+      className="w-full"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      {showLevel && (
+        <motion.div 
+          className="flex justify-between mb-2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
         >
-          {progress > 15 && (
-            <span className="text-xs font-bold text-white">{Math.round(progress)}%</span>
-          )}
-        </div>
+          <div className="flex items-center">
+            <motion.div 
+              className="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-bold px-3 py-1 rounded-full shadow-md mr-2 flex items-center"
+              whileHover={{ scale: 1.05 }}
+              animate={{ y: [0, -3, 0] }}
+              transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
+            >
+              <Trophy size={14} className="mr-1" />
+              <span>Level {level}</span>
+            </motion.div>
+            
+            {level > 1 && (
+              <motion.div 
+                className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full border border-yellow-200"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5 }}
+              >
+                <span>+{level - 1} Levels Earned!</span>
+              </motion.div>
+            )}
+          </div>
+          
+          <motion.div 
+            className="bg-purple-100 text-purple-700 text-sm font-bold px-3 py-1 rounded-full shadow-inner border border-purple-200"
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            {normalizedProgress}% Complete
+          </motion.div>
+        </motion.div>
+      )}
+      
+      {/* Progress bar container */}
+      <div className="w-full bg-gray-200 rounded-full h-6 mb-3 overflow-hidden shadow-inner relative">
+        {/* Milestone markers */}
+        {milestones.slice(0, -1).map((milestone, index) => (
+          <motion.div 
+            key={index}
+            className="absolute top-0 bottom-0 w-0.5 bg-white z-10 opacity-70"
+            style={{ left: `${milestone}%` }}
+            initial={{ height: 0 }}
+            animate={{ height: '100%' }}
+            transition={{ delay: 0.5 + (index * 0.1), duration: 0.3 }}
+          />
+        ))}
+        
+        {/* Animated progress fill */}
+        <motion.div 
+          className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 h-6 rounded-full relative overflow-hidden"
+          variants={progressVariants}
+          initial="initial"
+          animate="animate"
+        >
+          {/* Animated shine effect */}
+          <motion.div 
+            className="absolute top-0 bottom-0 w-20 bg-white opacity-20 transform -skew-x-30"
+            animate={{ x: [-100, 400] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+          />
+          
+          {/* Progress bubbles animation */}
+          {normalizedProgress > 10 && Array(3).fill(0).map((_, i) => (
+            <motion.div 
+              key={i}
+              className="absolute top-1 w-2 h-2 rounded-full bg-white opacity-70"
+              style={{ left: `${20 + (i * 30)}%` }}
+              animate={{ 
+                y: [0, -10, 0],
+                opacity: [0.7, 1, 0.7]
+              }}
+              transition={{ 
+                duration: 2, 
+                delay: i * 0.3, 
+                repeat: Infinity,
+                repeatType: "reverse"
+              }}
+            />
+          ))}
+        </motion.div>
       </div>
-    </div>
+      
+      {/* Star milestones */}
+      <div className="flex justify-between px-2">
+        {renderStars()}
+      </div>
+      
+      {/* Achievement badges */}
+      {reachedMilestones > 0 && (
+        <motion.div 
+          className="mt-3 flex justify-center gap-2"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1, duration: 0.5 }}
+        >
+          {Array(reachedMilestones).fill(0).map((_, index) => (
+            <motion.div 
+              key={index}
+              className="bg-gradient-to-r from-yellow-400 to-yellow-500 p-1 rounded-full shadow-md"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1, rotate: [0, 10, 0] }}
+              transition={{ delay: 1 + (index * 0.2), duration: 0.5 }}
+              whileHover={{ scale: 1.2 }}
+            >
+              <div className="bg-white rounded-full w-8 h-8 flex items-center justify-center text-yellow-500">
+                {index === 0 && <Star size={16} />}
+                {index === 1 && <Award size={16} />}
+                {index === 2 && <Medal size={16} />}
+                {index === 3 && <Trophy size={16} />}
+                {index === 4 && <Crown size={16} />}
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
+    </motion.div>
   );
 };
 

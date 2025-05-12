@@ -923,10 +923,15 @@ const useKiddoQuestStore = create((set, get) => ({
         createdAt: new Date().toISOString()
       };
       
+      // Check if we're in tutorial mode
+      const inTutorialMode = localStorage.getItem('kiddoquest_in_tutorial') === 'true';
+      
       set(state => ({ 
         childProfiles: [...state.childProfiles, newChildProfile],
         isLoadingData: false,
-        currentView: 'parentDashboard'
+        // Only navigate to parentDashboard if not in tutorial mode
+        // In tutorial mode, we'll let the component handle navigation
+        ...(!inTutorialMode ? { currentView: 'parentDashboard' } : {})
       }));
       
       return newChildProfile;
@@ -989,12 +994,32 @@ const useKiddoQuestStore = create((set, get) => ({
     set({ isLoadingData: true });
     
     try {
+      // Validate childId
+      if (!childId) {
+        throw new Error('Child ID is required');
+      }
+      
+      // Make sure we have a valid document reference
+      const childDocRef = doc(db, 'childProfiles', childId.toString());
+      
       // Delete from Firestore
-      await deleteDoc(doc(db, 'childProfiles', childId));
+      await deleteDoc(childDocRef);
+      
+      // Also delete any quest completions associated with this child
+      const completionsQuery = query(
+        collection(db, 'questCompletions'),
+        where('childId', '==', childId)
+      );
+      
+      const completionsSnapshot = await getDocs(completionsQuery);
+      const deletePromises = completionsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
       
       // Update local state
       set(state => ({
         childProfiles: state.childProfiles.filter(profile => profile.id !== childId),
+        // Also filter out any quest completions for this child
+        questCompletions: (state.questCompletions || []).filter(completion => completion.childId !== childId),
         isLoadingData: false
       }));
     } catch (error) {
@@ -1006,11 +1031,32 @@ const useKiddoQuestStore = create((set, get) => ({
 
   // --- Navigation Actions ---
   navigateTo: (view, params = {}) => {
-    set({ currentView: view, ...params });
+    // Push state to browser history
+    window.history.pushState({ view, params }, '', `#${view}`);
+    set(state => ({
+      currentView: view,
+      ...params
+    }));
+  },
+
+  // Handle browser back/forward navigation
+  handlePopState: (event) => {
+    const state = event.state;
+    if (state && state.view) {
+      set({ currentView: state.view, ...state.params });
+    } else {
+      // Fallback: go to parentDashboard
+      set({ currentView: 'parentDashboard' });
+    }
   },
   
-  selectChildForDashboard: (childId) => {
-    set({ selectedChildIdForDashboard: childId, currentView: 'childDashboard' });
+  selectChildForDashboard: (childId, view = 'childDashboard') => {
+    // Set both IDs to ensure compatibility with both dashboard and edit screens
+    set({ 
+      selectedChildIdForDashboard: childId, 
+      selectedChildId: childId,
+      currentView: view 
+    });
   },
   
   switchToChildView: (childId) => {
@@ -1140,10 +1186,19 @@ const useKiddoQuestStore = create((set, get) => ({
     }
   },
   
+  setEditingQuestId: (questId) => {
+    set({ editingQuestId: questId });
+  },
+  
+  // Alias for backward compatibility
   setEditingQuest: (questId) => {
+    set({ editingQuestId: questId, currentView: 'questForm' });
+  },
+  
+  editQuest: (questId) => {
     set({ 
       editingQuestId: questId, 
-      currentView: 'questForm' 
+      currentView: 'editQuest' 
     });
   },
   

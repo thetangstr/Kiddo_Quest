@@ -49,7 +49,8 @@ function App() {
   useEffect(() => {
     if (currentUser && currentView === 'parentDashboard') {
       // Check if user should see the tutorial
-      if (shouldShowGuidedTutorial()) {
+      const shouldShow = shouldShowGuidedTutorial();
+      if (shouldShow) {
         setShowTutorial(true);
       }
     }

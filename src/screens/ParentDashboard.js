@@ -17,11 +17,13 @@ const ParentDashboard = () => {
     selectChildForDashboard,
     approveQuest,
     currentUser,
-    hasParentPin
+    hasParentPin,
+    currentView
   } = useKiddoQuestStore();
   const [showAdminConsole, setShowAdminConsole] = useState(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [hasPinSet, setHasPinSet] = useState(false);
+  const [highlightedChildId, setHighlightedChildId] = useState(null);
   
   // Check if user has a PIN set
   useEffect(() => {
@@ -32,6 +34,35 @@ const ParentDashboard = () => {
     
     checkPin();
   }, [hasParentPin]);
+  
+  // Check for newly created child to highlight
+  useEffect(() => {
+    const highlightChildId = localStorage.getItem('kiddoquest_highlight_child');
+    const highlightTimestamp = localStorage.getItem('kiddoquest_highlight_timestamp');
+    
+    if (highlightChildId && highlightTimestamp) {
+      // Only highlight if it was created in the last 10 seconds
+      const now = Date.now();
+      const timestamp = parseInt(highlightTimestamp, 10);
+      
+      if (now - timestamp < 10000) { // 10 seconds
+        setHighlightedChildId(highlightChildId);
+        
+        // Clear the highlight after 3 seconds
+        const timer = setTimeout(() => {
+          setHighlightedChildId(null);
+          localStorage.removeItem('kiddoquest_highlight_child');
+          localStorage.removeItem('kiddoquest_highlight_timestamp');
+        }, 3000);
+        
+        return () => clearTimeout(timer);
+      } else {
+        // Clear old highlight data
+        localStorage.removeItem('kiddoquest_highlight_child');
+        localStorage.removeItem('kiddoquest_highlight_timestamp');
+      }
+    }
+  }, [currentView, childProfiles]);
   
   if (isLoadingData) {
     return <LoadingSpinner message="Loading dashboard..." />;
@@ -125,7 +156,10 @@ const ParentDashboard = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {childProfiles.map(child => (
-              <Card key={child.id} className="p-6">
+              <Card 
+                key={child.id} 
+                className={`p-6 ${highlightedChildId === child.id ? 'ring-4 ring-indigo-500 shadow-lg animate-pulse' : ''}`}
+              >
                 <div className="flex items-center mb-4">
                   <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-2xl mr-4">
                     {typeof child.avatar === 'string' && child.avatar.startsWith('http') 
@@ -141,8 +175,7 @@ const ParentDashboard = () => {
                     icon={Edit3}
                     className="text-gray-500 hover:text-indigo-600"
                     onClick={() => {
-                      selectChildForDashboard(child.id);
-                      navigateTo('editChild');
+                      selectChildForDashboard(child.id, 'editChild');
                     }}
                   />
                 </div>

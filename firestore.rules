@@ -24,6 +24,11 @@ service cloud.firestore {
       allow read, write, create: if request.auth != null;
     }
     
+    // Quest completions can be read and written by any authenticated user
+    match /questCompletions/{completionId} {
+      allow read, write, create, delete: if request.auth != null;
+    }
+    
     // Feedback reports can be submitted by any authenticated user
     // and viewed by the admin (thetangstr@gmail.com)
     match /feedbackReports/{reportId} {

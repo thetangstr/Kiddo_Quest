@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserPlus, ArrowLeft, Camera, Smile } from 'lucide-react';
 import useKiddoQuestStore from '../store';
 import { Button, InputField, Card, LoadingSpinner } from '../components/UI';
@@ -14,6 +14,17 @@ export const AddChildScreen = () => {
   
   const avatarOptions = ['👦', '👧', '👶', '🧒', '👼', '🦸‍♂️', '🦸‍♀️', '🧚', '🦊', '🐱', '🐶', '🐼', '🐯', '🦁', '🐨', '🐵'];
   
+  // Check if we're in tutorial mode when component mounts
+  useEffect(() => {
+    // Set tutorial mode flag if this is part of the tutorial flow
+    const isTutorial = window.location.hash.includes('tutorial') || 
+                      document.querySelector('[data-tutorial="child-form"]') !== null;
+    
+    if (isTutorial) {
+      localStorage.setItem('kiddoquest_in_tutorial', 'true');
+    }
+  }, []);
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -24,12 +35,33 @@ export const AddChildScreen = () => {
     }
     
     try {
-      await addChildProfile({ 
+      // Set tutorial mode flag
+      localStorage.setItem('kiddoquest_in_tutorial', 'true');
+      
+      const newChildProfile = await addChildProfile({ 
         name, 
         avatar: avatarFile ? URL.createObjectURL(avatarFile) : avatar,
         avatarFile,
         xp: 0 
       });
+      
+      // Store the newly created child ID in localStorage for highlighting
+      if (newChildProfile && newChildProfile.id) {
+        localStorage.setItem('kiddoquest_last_added_child', newChildProfile.id);
+        localStorage.setItem('kiddoquest_last_added_child_name', name);
+        localStorage.setItem('kiddoquest_highlight_child', newChildProfile.id);
+        localStorage.setItem('kiddoquest_highlight_timestamp', Date.now().toString());
+        
+        // Navigate back to parent dashboard
+        console.log('Child created, navigating back to parent dashboard');
+        
+        // Give a clear visual indication that the action was successful
+        setError('');
+        
+        setTimeout(() => {
+          navigateTo('parentDashboard');
+        }, 800); // Slightly longer delay for better UX
+      }
     } catch (error) {
       setError(error.message || 'Failed to add child profile. Please try again.');
     }

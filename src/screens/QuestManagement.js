@@ -183,6 +183,7 @@ export const QuestFormScreen = () => {
     quests, 
     childProfiles, 
     editingQuestId, 
+    setEditingQuestId, 
     addQuest, 
     updateQuest, 
     navigateTo, 
@@ -205,9 +206,13 @@ export const QuestFormScreen = () => {
   
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
   
-  // Load quest data if editing
+  // Load quest data if editing or select a random quest for the tutorial
   useEffect(() => {
+    // Check if we're in the tutorial flow and have a newly created child
+    const lastAddedChildId = localStorage.getItem('kiddoquest_last_added_child');
+    
     if (editingQuestId) {
+      // Normal edit flow
       const questToEdit = quests.find(q => q.id === editingQuestId);
       if (questToEdit) {
         setFormData({
@@ -224,6 +229,30 @@ export const QuestFormScreen = () => {
           maxPerCadence: questToEdit.maxPerCadence || 1
         });
       }
+    } else if (lastAddedChildId && !editingQuestId && quests.length > 0) {
+      // Tutorial flow - select a random quest for the user
+      const randomIndex = Math.floor(Math.random() * Math.min(quests.length, 3)); // Pick from first 3 quests or fewer
+      const randomQuest = quests[randomIndex];
+      
+      // Set the editing quest ID to the random quest
+      setTimeout(() => {
+        setEditingQuestId(randomQuest.id);
+        
+        // Pre-select the newly created child
+        setFormData({
+          title: randomQuest.title || '',
+          description: randomQuest.description || '',
+          xp: randomQuest.xp || 10,
+          type: randomQuest.type || 'one-time',
+          frequency: randomQuest.frequency || null,
+          assignedTo: [...(randomQuest.assignedTo || []), lastAddedChildId],
+          iconName: randomQuest.iconName || 'CheckCircle',
+          image: randomQuest.image || null,
+          imageFile: null,
+          penaltyPoints: randomQuest.penaltyPoints || 0,
+          maxPerCadence: randomQuest.maxPerCadence || 1
+        });
+      }, 300);
     }
   }, [editingQuestId, quests]);
   
@@ -273,10 +302,35 @@ export const QuestFormScreen = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (editingQuestId) {
-      await updateQuest(editingQuestId, formData);
-    } else {
-      await addQuest(formData);
+    try {
+      // Check if we're in the tutorial flow
+      const lastAddedChildId = localStorage.getItem('kiddoquest_last_added_child');
+      const isInTutorial = !!lastAddedChildId;
+      
+      if (editingQuestId) {
+        await updateQuest(editingQuestId, formData);
+      } else {
+        await addQuest(formData);
+      }
+      
+      // If we're in the tutorial flow, automatically navigate to the child dashboard
+      // to continue with the next step of the tutorial
+      if (isInTutorial && formData.assignedTo.includes(lastAddedChildId)) {
+        // Store the quest ID for reference in the next tutorial step
+        localStorage.setItem('kiddoquest_tutorial_quest_id', editingQuestId);
+        
+        // Short delay for better UX
+        setTimeout(() => {
+          // Navigate to the child dashboard with the newly created child
+          navigateTo('childDashboard', { selectedChildIdForDashboard: lastAddedChildId });
+        }, 500);
+      } else {
+        // Normal flow - go back to quest management
+        navigateTo('manageQuests');
+      }
+    } catch (error) {
+      console.error('Error saving quest:', error);
+      // Stay on the form in case of error
     }
   };
   

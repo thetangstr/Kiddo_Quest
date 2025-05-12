@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, orderBy, query, doc, updateDoc, addDoc, serverTimestamp, where, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, doc, updateDoc, addDoc, serverTimestamp, where, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { Button, Card, LoadingSpinner, Modal, InputField } from '../components/UI';
-import { Mail, UserPlus, Edit, Trash, CheckCircle, X, UserCheck, Shield, Trophy } from 'lucide-react';
+import { Mail, UserPlus, Edit, Trash, CheckCircle, X, UserCheck } from 'lucide-react';
 
 // Admin Console tabs
 const TABS = {
   BUGS: 'bugs',
   INVITATIONS: 'invitations',
-  USERS: 'users',
-  SETTINGS: 'settings'
+  USERS: 'users'
 };
 
 // Default invitation message
@@ -44,7 +43,7 @@ export default function AdminConsole({ user, onBack }) {
   const [userActionSuccess, setUserActionSuccess] = useState(false);
   const [userActionError, setUserActionError] = useState('');
   
-  // Local test data for the Users tab with accurate information
+  // Local test data for the Active Users tab with accurate information
   const localTestUsers = [
     {
       id: '1',
@@ -197,11 +196,6 @@ export default function AdminConsole({ user, onBack }) {
     setIsDeleteUserModalOpen(true);
   };
   
-  // Generate a unique ID for Firestore users when Firebase Auth is not available
-  const generateUniqueId = () => {
-    return 'manual_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-  };
-  
   // Add new user
   const addNewUser = async (e) => {
     e.preventDefault();
@@ -218,138 +212,48 @@ export default function AdminConsole({ user, onBack }) {
         throw new Error('Password must be at least 6 characters');
       }
       
-      const invitedEmail = newUserEmail.trim().toLowerCase();
+      // Create user with Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        newUserEmail.trim(),
+        newUserPassword.trim()
+      );
       
-      // Comprehensive duplicate check
-      // 1. Check if email exists in Firestore users collection
-      const userQuery = query(collection(db, 'users'), where('email', '==', invitedEmail));
-      const userSnapshot = await getDocs(userQuery);
-      
-      if (!userSnapshot.empty) {
-        throw new Error('This email is already registered in the system.');
-      }
-      
-      // 2. Check if email exists in invitations collection
-      const invitationQuery = query(collection(db, 'invitations'), where('email', '==', invitedEmail));
-      const invitationSnapshot = await getDocs(invitationQuery);
-      
-      if (!invitationSnapshot.empty) {
-        throw new Error('An invitation has already been sent to this email address.');
-      }
-      
-      // 3. Check if email exists in local users state (just in case)
-      const existingUser = users.find(u => u.email.toLowerCase() === invitedEmail);
-      if (existingUser) {
-        throw new Error('This email is already in the user list.');
-      }
-      
-      // Instead of directly creating the user, send an invitation
-      // This avoids the auto-login issue and provides a better user experience
-      const tempPassword = newUserPassword.trim();
-      
-      // Create a message with the login details
-      const htmlMessage = `
-        <p>You have been invited to use Kiddo Quest.</p>
-        <p>Please visit <a href="https://www.kiddoquest.life" target="_blank">www.kiddoquest.life</a> to log in.</p>
-        <p>Your login details:</p>
-        <p>Email: <strong>${invitedEmail}</strong></p>
-        <p>Password: <strong>${tempPassword}</strong></p>
-        <p>Please change your password after your first login.</p>
-      `;
-      
-      // Create the user in Firebase Auth but don't let it affect current session
-      let userId;
-      let authEnabled = true;
-      
-      try {
-        // Instead of using Firebase Auth directly, which would sign out the admin,
-        // we'll create the user in Firestore only and send an invitation
-        // This is a workaround since we don't have access to the Firebase Admin SDK
-        
-        // Generate a unique ID for the user
-        userId = generateUniqueId();
-        authEnabled = false; // Set to false since we're not using Firebase Auth
-        
-        console.log(`Creating user ${invitedEmail} with manual ID: ${userId}`);
-        
-        // We'll add a note to the invitation explaining they need to use Google Sign-In
-        const googleNote = `<p><strong>Note:</strong> Please use Google Sign-In with this email address to access your account.</p>`;
-        htmlMessage += googleNote;
-      } catch (authError) {
-        console.error('Firebase auth error:', authError);
-        
-        // Handle specific auth errors
-        if (authError.code === 'auth/operation-not-allowed') {
-          authEnabled = false;
-          console.warn(
-            'Email/Password authentication is not enabled in Firebase. ' +
-            'Creating user in Firestore only as a fallback.'
-          );
-          
-          // Generate a manual ID for Firestore
-          userId = generateUniqueId();
-        } else if (authError.code === 'auth/email-already-in-use') {
-          throw new Error('This email is already in use in Firebase Authentication. Please use a different email address.');
-        } else {
-          throw authError; // Re-throw other auth errors
-        }
-      }
+      const newUser = userCredential.user;
       
       // Add user to Firestore
-      await setDoc(doc(db, 'users', userId), {
-        email: invitedEmail,
+      await setDoc(doc(db, 'users', newUser.uid), {
+        email: newUserEmail.trim().toLowerCase(),
         isAdmin: newUserIsAdmin,
         status: 'active',
         createdAt: serverTimestamp(),
         createdBy: user.email,
-        loginCount7Days: 0,
-        authEnabled: authEnabled,
-        createdVia: 'admin_console'
+        loginCount7Days: 0
       });
-      
-      // Add to invitations collection to track
-      await addDoc(collection(db, 'invitations'), {
-        email: invitedEmail,
-        message: htmlMessage,
-        status: 'sent',
-        createdAt: serverTimestamp(),
-        sentBy: user.email,
-        userId: userId
-      });
-      
-      // Send actual email (simulated here)
-      await sendEmailInvitation(invitedEmail, htmlMessage);
       
       // Update local state
       const addedUser = {
-        id: userId,
-        email: invitedEmail,
+        id: newUser.uid,
+        email: newUserEmail.trim().toLowerCase(),
         isAdmin: newUserIsAdmin,
         userType: newUserIsAdmin ? 'admin' : 'app user',
         status: 'active',
         lastLogin: null,
         loginCount7Days: 0,
-        createdAt: new Date(),
-        authEnabled: authEnabled
+        createdAt: new Date()
       };
       
       setUsers([addedUser, ...users]);
       setUserActionSuccess(true);
       
-      // Show a message about the invitation
-      setUserActionError(
-        'User created successfully and invitation sent. You may need to log back in as admin.'
-      );
-      
-      // Reset form after delay
+      // Reset form
       setTimeout(() => {
         setIsAddUserModalOpen(false);
         setNewUserEmail('');
         setNewUserPassword('');
         setNewUserIsAdmin(false);
         setUserActionSuccess(false);
-        setUserActionError('');
-      }, 3000);
+      }, 2000);
     } catch (error) {
       console.error('Error adding new user:', error);
       setUserActionError(error.message || 'Failed to add user');
@@ -415,27 +319,16 @@ export default function AdminConsole({ user, onBack }) {
         throw new Error('No user selected for deletion');
       }
       
-      console.log('Attempting to delete/deactivate user:', editingUser.id);
+      // In a real app, you would use Firebase Admin SDK to delete the user
+      // Here we'll just mark the user as inactive in Firestore
+      await updateDoc(doc(db, 'users', editingUser.id), {
+        status: 'deleted',
+        deletedAt: serverTimestamp(),
+        deletedBy: user.email
+      });
       
-      // Instead of trying to delete the document, which may fail due to permissions,
-      // we'll just update the user's status to 'deleted' in our local state
-      // and hide them from the UI
-      
-      // Update local state to remove the user from the UI
+      // Update local state
       setUsers(users.filter(u => u.id !== editingUser.id));
-      
-      // Try to update the document in Firestore, but don't fail if it doesn't work
-      try {
-        await setDoc(doc(db, 'users', editingUser.id), {
-          status: 'deleted',
-          deletedAt: serverTimestamp(),
-          deletedBy: user.email
-        }, { merge: true });
-        console.log('Successfully marked user as deleted in Firestore');
-      } catch (firestoreError) {
-        console.warn('Could not update user status in Firestore, but removed from UI:', firestoreError);
-        // We don't throw here because we've already updated the UI
-      }
       
       setUserActionSuccess(true);
       
@@ -451,6 +344,76 @@ export default function AdminConsole({ user, onBack }) {
     }
     
     setProcessingUserAction(false);
+  };
+
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      setError('');
+      
+      try {
+        // Fetch bug reports
+        const bugsQuery = query(collection(db, 'feedbackReports'), orderBy('createdAt', 'desc'));
+        const bugsSnapshot = await getDocs(bugsQuery);
+        const allReports = bugsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setReports(allReports);
+        setFilteredReports(allReports); // Initially show all reports
+        
+        // Fetch invitations
+        const invitationsQuery = query(collection(db, 'invitations'), orderBy('createdAt', 'desc'));
+        const invitationsSnapshot = await getDocs(invitationsQuery);
+        setInvitations(invitationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        
+        // Fetch actual user data from Firestore
+        const userData = await fetchUserData();
+        setUsers(userData);
+      } catch (err) {
+        console.error('Error fetching admin data:', err);
+        setError(`Failed to fetch data: ${err.message || 'Unknown error'}`);
+      }
+      
+      setLoading(false);
+    }
+    
+    fetchData();
+  }, []);
+  
+  // Handle status filter change
+  const handleStatusFilterChange = (status) => {
+    setStatusFilter(status);
+    
+    if (status === 'all') {
+      setFilteredReports(reports);
+    } else {
+      setFilteredReports(reports.filter(report => report.status === status));
+    }
+  };
+
+  // Handle bug status update
+  const updateBugStatus = async (bugId, newStatus) => {
+    try {
+      await updateDoc(doc(db, 'feedbackReports', bugId), {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update local state
+      const updatedReports = reports.map(report => 
+        report.id === bugId ? { ...report, status: newStatus } : report
+      );
+      
+      setReports(updatedReports);
+      
+      // Apply current filter to updated reports
+      if (statusFilter === 'all') {
+        setFilteredReports(updatedReports);
+      } else {
+        setFilteredReports(updatedReports.filter(report => report.status === statusFilter));
+      }
+    } catch (err) {
+      console.error('Error updating bug status:', err);
+      alert(`Failed to update status: ${err.message || 'Unknown error'}`);
+    }
   };
   
   // Function to send actual email using a serverless function
@@ -506,68 +469,47 @@ export default function AdminConsole({ user, onBack }) {
           const tempPassword = Math.random().toString(36).slice(-8);
           
           // Create user with Firebase Authentication
-          let newUser;
-          try {
-            const userCredential = await createUserWithEmailAndPassword(
-              auth,
-              invitedEmail,
-              tempPassword
-            );
-            
-            newUser = userCredential.user;
-            userId = newUser.uid;
-            
-            // Add user to Firestore
-            await setDoc(doc(db, 'users', newUser.uid), {
-              email: invitedEmail,
-              isAdmin: false,
-              status: 'active',
-              createdAt: serverTimestamp(),
-              createdBy: user.email,
-              createdVia: 'invitation',
-              loginCount7Days: 0
-            });
-            
-            // Update local state with new user
-            const addedUser = {
-              id: newUser.uid,
-              email: invitedEmail,
-              isAdmin: false,
-              userType: 'app user',
-              status: 'active',
-              lastLogin: null,
-              loginCount7Days: 0,
-              createdAt: new Date()
-            };
-            
-            setUsers([addedUser, ...users]);
-            
-            // Include the temporary password in the invitation email
-            const passwordMessage = `<p>Your temporary password is: <strong>${tempPassword}</strong></p><p>Please change your password after your first login.</p>`;
-            htmlMessage += passwordMessage;
-            
-            console.log(`Created new user account for ${invitedEmail} with temporary password`);
-          } catch (authError) {
-            console.error('Firebase auth error:', authError);
-            
-            // Handle specific auth errors
-            if (authError.code === 'auth/operation-not-allowed') {
-              // Just log the error but continue with the invitation
-              console.warn(
-                'Email/Password authentication is not enabled in Firebase. ' +
-                'Please go to the Firebase Console > Authentication > Sign-in method and enable Email/Password authentication.'
-              );
-              
-              // Add a note to the invitation message
-              const authNote = `<p><strong>Note:</strong> We couldn't create an account for you automatically because Email/Password authentication is not enabled. Please contact the administrator.</p>`;
-              htmlMessage += authNote;
-            } else if (authError.code === 'auth/email-already-in-use') {
-              console.warn('This email is already in use but not found in our users collection.');
-            }
-            // Continue with invitation even if user creation fails
-          }
-        } catch (error) {
-          console.error('Error in user creation process:', error);
+          const userCredential = await createUserWithEmailAndPassword(
+            auth,
+            invitedEmail,
+            tempPassword
+          );
+          
+          const newUser = userCredential.user;
+          userId = newUser.uid;
+          
+          // Add user to Firestore
+          await setDoc(doc(db, 'users', newUser.uid), {
+            email: invitedEmail,
+            isAdmin: false,
+            status: 'active',
+            createdAt: serverTimestamp(),
+            createdBy: user.email,
+            createdVia: 'invitation',
+            loginCount7Days: 0
+          });
+          
+          // Update local state with new user
+          const addedUser = {
+            id: newUser.uid,
+            email: invitedEmail,
+            isAdmin: false,
+            userType: 'app user',
+            status: 'active',
+            lastLogin: null,
+            loginCount7Days: 0,
+            createdAt: new Date()
+          };
+          
+          setUsers([addedUser, ...users]);
+          
+          // Include the temporary password in the invitation email
+          const passwordMessage = `<p>Your temporary password is: <strong>${tempPassword}</strong></p><p>Please change your password after your first login.</p>`;
+          htmlMessage += passwordMessage;
+          
+          console.log(`Created new user account for ${invitedEmail} with temporary password`);
+        } catch (authError) {
+          console.error('Error creating user account:', authError);
           // Continue with invitation even if user creation fails
         }
       } else {
@@ -631,76 +573,6 @@ export default function AdminConsole({ user, onBack }) {
     setSendingInvitation(false);
   };
   
-  // Handle bug status update
-  const updateBugStatus = async (bugId, newStatus) => {
-    try {
-      await updateDoc(doc(db, 'feedbackReports', bugId), {
-        status: newStatus,
-        updatedAt: serverTimestamp()
-      });
-      
-      // Update local state
-      const updatedReports = reports.map(report => 
-        report.id === bugId ? { ...report, status: newStatus } : report
-      );
-      
-      setReports(updatedReports);
-      
-      // Apply current filter to updated reports
-      if (statusFilter === 'all') {
-        setFilteredReports(updatedReports);
-      } else {
-        setFilteredReports(updatedReports.filter(report => report.status === statusFilter));
-      }
-    } catch (err) {
-      console.error('Error updating bug status:', err);
-      alert(`Failed to update status: ${err.message || 'Unknown error'}`);
-    }
-  };
-  
-  // Handle status filter change
-  const handleStatusFilterChange = (status) => {
-    setStatusFilter(status);
-    
-    if (status === 'all') {
-      setFilteredReports(reports);
-    } else {
-      setFilteredReports(reports.filter(report => report.status === status));
-    }
-  };
-  
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      setError('');
-      
-      try {
-        // Fetch bug reports
-        const bugsQuery = query(collection(db, 'feedbackReports'), orderBy('createdAt', 'desc'));
-        const bugsSnapshot = await getDocs(bugsQuery);
-        const allReports = bugsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setReports(allReports);
-        setFilteredReports(allReports); // Initially show all reports
-        
-        // Fetch invitations
-        const invitationsQuery = query(collection(db, 'invitations'), orderBy('createdAt', 'desc'));
-        const invitationsSnapshot = await getDocs(invitationsQuery);
-        setInvitations(invitationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        
-        // Fetch actual user data from Firestore
-        const userData = await fetchUserData();
-        setUsers(userData);
-      } catch (err) {
-        console.error('Error fetching admin data:', err);
-        setError(`Failed to fetch data: ${err.message || 'Unknown error'}`);
-      }
-      
-      setLoading(false);
-    }
-    
-    fetchData();
-  }, []);
-  
   // Access control - only thetangstr@gmail.com can access
   if (!user || user.email !== 'thetangstr@gmail.com') {
     return <div className="p-8 text-center text-red-600">Access denied. Admin only.</div>;
@@ -709,41 +581,36 @@ export default function AdminConsole({ user, onBack }) {
   if (loading) return <LoadingSpinner message="Loading admin console..." />;
   
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Admin Console</h1>
-        <Button onClick={onBack} variant="outline">Back to Dashboard</Button>
-      </div>
-      
-      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
-      
-      {/* Tabs */}
-      <div className="flex border-b mb-6">
-        <button 
-          className={`py-2 px-4 font-medium ${activeTab === TABS.BUGS ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab(TABS.BUGS)}
-        >
-          Bug Reports
-        </button>
-        <button 
-          className={`py-2 px-4 font-medium ${activeTab === TABS.INVITATIONS ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab(TABS.INVITATIONS)}
-        >
-          User Invitations
-        </button>
-        <button 
-          className={`py-2 px-4 font-medium ${activeTab === TABS.USERS ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab(TABS.USERS)}
-        >
-          Users
-        </button>
-        <button 
-          className={`py-2 px-4 font-medium ${activeTab === TABS.SETTINGS ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab(TABS.SETTINGS)}
-        >
-          Settings
-        </button>
-      </div>
+    <>
+      <div className="max-w-6xl mx-auto py-8 px-4">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Admin Console</h1>
+          <Button onClick={onBack} variant="outline">Back to Dashboard</Button>
+        </div>
+        
+        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+        
+        {/* Tabs */}
+        <div className="flex border-b mb-6">
+          <button 
+            className={`py-2 px-4 font-medium ${activeTab === TABS.BUGS ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab(TABS.BUGS)}
+          >
+            Bug Reports
+          </button>
+          <button 
+            className={`py-2 px-4 font-medium ${activeTab === TABS.INVITATIONS ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab(TABS.INVITATIONS)}
+          >
+            User Invitations
+          </button>
+          <button 
+            className={`py-2 px-4 font-medium ${activeTab === TABS.USERS ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab(TABS.USERS)}
+          >
+            Active Users
+          </button>
+        </div>
       
       {/* Bug Reports Tab */}
       {activeTab === TABS.BUGS && (
@@ -918,17 +785,16 @@ export default function AdminConsole({ user, onBack }) {
         </div>
       )}
       
-      {/* Users Tab */}
+      {/* Active Users Tab */}
       {activeTab === TABS.USERS && (
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Users</h2>
+            <h2 className="text-xl font-semibold">User Management</h2>
             <Button 
-              variant="primary" 
-              icon={UserPlus}
-              onClick={() => setIsAddUserModalOpen(true)}
+              onClick={openAddUserModal}
+              className="flex items-center bg-indigo-600 hover:bg-indigo-700 text-white"
             >
-              Add User
+              <UserPlus size={16} className="mr-1" /> Add New User
             </Button>
           </div>
           
@@ -1020,83 +886,7 @@ export default function AdminConsole({ user, onBack }) {
           )}
         </div>
       )}
-      
-      {/* Settings Tab */}
-      {activeTab === TABS.SETTINGS && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4">System Settings</h2>
-          
-          <Card className="mb-6 p-6">
-            <h3 className="text-lg font-medium text-indigo-600 mb-3">Tutorial Management</h3>
-            <p className="text-gray-600 mb-4">
-              You can reset the tutorial status for specific users. This will cause the tutorial to show again
-              the next time they log in to the application.
-            </p>
-            
-            <div className="mb-6">
-              <h4 className="font-medium mb-2">Reset Tutorial for Individual Users:</h4>
-              <p className="text-gray-600 mb-4">
-                This will trigger the tutorial to be shown again for specific users the next time they log in.
-                Users can still dismiss the tutorial if they don't want to see it.
-              </p>
-              
-              <div className="space-y-2 mt-4">
-                {users.map(user => (
-                  <div key={user.id} className="flex items-center justify-between p-3 border rounded-md">
-                    <div>
-                      <p className="font-medium">{user.email}</p>
-                      <p className="text-sm text-gray-500">{user.status}</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        // Set a user-specific reset flag in localStorage
-                        const safeEmail = user.email.replace(/[.@]/g, '_');
-                        localStorage.setItem(`kiddoquest_tutorial_reset_${safeEmail}`, 'true');
-                        setUserActionSuccess(true);
-                        setTimeout(() => setUserActionSuccess(false), 3000);
-                      }}
-                    >
-                      Reset Tutorial
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="border-t pt-4 mt-6">
-                <h4 className="font-medium mb-2">Global Tutorial Reset:</h4>
-                <p className="text-gray-600 mb-4">
-                  This will trigger the tutorial to be shown again for all users the next time they log in.
-                </p>
-                
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    // Set a global reset flag in localStorage
-                    localStorage.setItem('kiddoquest_global_tutorial_reset', 'true');
-                    setUserActionSuccess(true);
-                    setTimeout(() => setUserActionSuccess(false), 3000);
-                  }}
-                >
-                  Reset Tutorial for All Users
-                </Button>
-              </div>
-            </div>
-            
-            {userActionSuccess && (
-              <div className="mt-4 p-2 bg-green-100 text-green-700 rounded">
-                Tutorial reset successful!
-              </div>
-            )}
-            
-            {userActionError && (
-              <div className="mt-4 p-2 bg-red-100 text-red-700 rounded">
-                Error: {userActionError}
-              </div>
-            )}
-          </Card>
-        </div>
-      )}
+    </div>
       
       {/* Add User Modal */}
       <Modal
@@ -1104,36 +894,107 @@ export default function AdminConsole({ user, onBack }) {
         onClose={() => setIsAddUserModalOpen(false)}
         title="Add New User"
       >
-        <form onSubmit={addNewUser} className="space-y-4">
-          <InputField
-            label="Email Address"
-            type="email"
-            value={newUserEmail}
-            onChange={(e) => setNewUserEmail(e.target.value)}
-            placeholder="Enter email address"
-            required
+      <form onSubmit={addNewUser} className="space-y-4">
+        <InputField
+          label="Email Address"
+          type="email"
+          value={newUserEmail}
+          onChange={(e) => setNewUserEmail(e.target.value)}
+          placeholder="Enter email address"
+          required
+        />
+        
+        <InputField
+          label="Password"
+          type="password"
+          value={newUserPassword}
+          onChange={(e) => setNewUserPassword(e.target.value)}
+          placeholder="Enter password (min 6 characters)"
+          required
+        />
+        
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="isAdmin"
+            checked={newUserIsAdmin}
+            onChange={(e) => setNewUserIsAdmin(e.target.checked)}
+            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
           />
-          
-          <InputField
-            label="Password"
-            type="password"
-            value={newUserPassword}
-            onChange={(e) => setNewUserPassword(e.target.value)}
-            placeholder="Enter password (min 6 characters)"
-            required
-          />
+          <label htmlFor="isAdmin" className="ml-2 block text-sm text-gray-900">
+            Make this user an admin
+          </label>
+        </div>
+        
+        {userActionError && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {userActionError}
+          </div>
+        )}
+        
+        {userActionSuccess && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+            User added successfully!
+          </div>
+        )}
+        
+        <div className="flex justify-end space-x-3 pt-4">
+          <Button
+            variant="outline"
+            onClick={() => setIsAddUserModalOpen(false)}
+            type="button"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={processingUserAction}
+          >
+            {processingUserAction ? 'Adding...' : 'Add User'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+    
+    {/* Edit User Modal */}
+    <Modal
+      isOpen={isEditUserModalOpen}
+      onClose={() => setIsEditUserModalOpen(false)}
+      title="Edit User"
+    >
+      {editingUser && (
+        <form onSubmit={updateUser} className="space-y-4">
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Email Address</label>
+            <div className="text-gray-700 bg-gray-100 p-2 rounded">
+              {editingUser.email}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+          </div>
           
           <div className="flex items-center">
             <input
               type="checkbox"
-              id="isAdmin"
-              checked={newUserIsAdmin}
-              onChange={(e) => setNewUserIsAdmin(e.target.checked)}
+              id="editIsAdmin"
+              checked={editingUser.isAdmin}
+              onChange={(e) => setEditingUser({...editingUser, isAdmin: e.target.checked})}
               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
             />
-            <label htmlFor="isAdmin" className="ml-2 block text-sm text-gray-900">
-              Make this user an admin
+            <label htmlFor="editIsAdmin" className="ml-2 block text-sm text-gray-900">
+              Admin privileges
             </label>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Status</label>
+            <select
+              value={editingUser.status}
+              onChange={(e) => setEditingUser({...editingUser, status: e.target.value})}
+              className="w-full border rounded p-2"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </div>
           
           {userActionError && (
@@ -1144,14 +1005,14 @@ export default function AdminConsole({ user, onBack }) {
           
           {userActionSuccess && (
             <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-              User added successfully!
+              User updated successfully!
             </div>
           )}
           
           <div className="flex justify-end space-x-3 pt-4">
             <Button
               variant="outline"
-              onClick={() => setIsAddUserModalOpen(false)}
+              onClick={() => setIsEditUserModalOpen(false)}
               type="button"
             >
               Cancel
@@ -1160,141 +1021,69 @@ export default function AdminConsole({ user, onBack }) {
               type="submit"
               disabled={processingUserAction}
             >
-              {processingUserAction ? 'Adding...' : 'Add User'}
+              {processingUserAction ? 'Updating...' : 'Update User'}
             </Button>
           </div>
         </form>
-      </Modal>
-      
-      {/* Edit User Modal */}
-      <Modal
-        isOpen={isEditUserModalOpen}
-        onClose={() => setIsEditUserModalOpen(false)}
-        title="Edit User"
-      >
-        {editingUser && (
-          <form onSubmit={updateUser} className="space-y-4">
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Email Address</label>
-              <div className="text-gray-700 bg-gray-100 p-2 rounded">
-                {editingUser.email}
+      )}
+    </Modal>
+    
+    {/* Delete User Modal */}
+    <Modal
+      isOpen={isDeleteUserModalOpen}
+      onClose={() => setIsDeleteUserModalOpen(false)}
+      title="Delete User"
+    >
+      {editingUser && (
+        <div className="space-y-4">
+          <div className="bg-red-50 border-l-4 border-red-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <Trash className="h-5 w-5 text-red-400" />
               </div>
-              <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-            </div>
-            
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="editIsAdmin"
-                checked={editingUser.isAdmin}
-                onChange={(e) => setEditingUser({...editingUser, isAdmin: e.target.checked})}
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-              />
-              <label htmlFor="editIsAdmin" className="ml-2 block text-sm text-gray-900">
-                Admin privileges
-              </label>
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Status</label>
-              <select
-                value={editingUser.status}
-                onChange={(e) => setEditingUser({...editingUser, status: e.target.value})}
-                className="w-full border rounded p-2"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-            
-            {userActionError && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                {userActionError}
+              <div className="ml-3">
+                <p className="text-sm text-red-700">
+                  Are you sure you want to delete this user? This action cannot be undone.
+                </p>
               </div>
-            )}
-            
-            {userActionSuccess && (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-                User updated successfully!
-              </div>
-            )}
-            
-            <div className="flex justify-end space-x-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditUserModalOpen(false)}
-                type="button"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={processingUserAction}
-              >
-                {processingUserAction ? 'Updating...' : 'Update User'}
-              </Button>
-            </div>
-          </form>
-        )}
-      </Modal>
-      
-      {/* Delete User Modal */}
-      <Modal
-        isOpen={isDeleteUserModalOpen}
-        onClose={() => setIsDeleteUserModalOpen(false)}
-        title="Delete User"
-      >
-        {editingUser && (
-          <div className="space-y-4">
-            <div className="bg-red-50 border-l-4 border-red-400 p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <Trash className="h-5 w-5 text-red-400" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">
-                    Are you sure you want to delete this user? This action cannot be undone.
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-gray-100 p-4 rounded">
-              <div className="text-sm font-medium text-gray-500">User Email</div>
-              <div className="text-gray-900">{editingUser.email}</div>
-            </div>
-            
-            {userActionError && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                {userActionError}
-              </div>
-            )}
-            
-            {userActionSuccess && (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-                User deleted successfully!
-              </div>
-            )}
-            
-            <div className="flex justify-end space-x-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsDeleteUserModalOpen(false)}
-                type="button"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={deleteUser}
-                disabled={processingUserAction}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {processingUserAction ? 'Deleting...' : 'Delete User'}
-              </Button>
             </div>
           </div>
-        )}
-      </Modal>
-    </div>
+          
+          <div className="bg-gray-100 p-4 rounded">
+            <div className="text-sm font-medium text-gray-500">User Email</div>
+            <div className="text-gray-900">{editingUser.email}</div>
+          </div>
+          
+          {userActionError && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              {userActionError}
+            </div>
+          )}
+          
+          {userActionSuccess && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+              User deleted successfully!
+            </div>
+          )}
+          
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteUserModalOpen(false)}
+              type="button"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={deleteUser}
+              disabled={processingUserAction}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {processingUserAction ? 'Deleting...' : 'Delete User'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
