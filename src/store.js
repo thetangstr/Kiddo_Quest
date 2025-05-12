@@ -4,7 +4,9 @@ import {
   signInWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged,
-  signInWithPopup
+  signInWithPopup,
+  GoogleAuthProvider,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { 
   collection, 
@@ -33,6 +35,7 @@ const useKiddoQuestStore = create((set, get) => ({
   // --- Data State (will be populated from Firestore) ---
   childProfiles: [], 
   quests: [],
+  questCompletions: [], // Track quest completions per child
   rewards: [],
   
   // --- UI State ---
@@ -212,96 +215,215 @@ const useKiddoQuestStore = create((set, get) => ({
   },
   
   loginWithGoogle: async () => {
-    set({ isLoadingAuth: true });
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+      set({ isLoadingAuth: true });
       
-      // Check if user already exists in the active users collection
-      const userQuery = query(collection(db, 'users'), where('email', '==', user.email.toLowerCase()));
-      const userSnapshot = await getDocs(userQuery);
+      // Sign in with Google popup
+      const provider = new GoogleAuthProvider();
       
-      // If user exists, check if they're active (unless they're admin)
-      if (!userSnapshot.empty && user.email !== 'thetangstr@gmail.com') {
-        const userData = userSnapshot.docs[0].data();
-        if (userData.status === 'inactive') {
-          await signOut(auth);
-          set({ isLoadingAuth: false });
-          throw new Error('Your account has been deactivated. Please contact the administrator.');
-        }
-      }
+      // Add login hint to improve the login experience
+      provider.setCustomParameters({
+        prompt: 'select_account',
+        login_hint: 'thetangstr@gmail.com'
+      });
       
-      // If user doesn't exist and isn't the admin, add them to the users collection
-      if (userSnapshot.empty && user.email !== 'thetangstr@gmail.com') {
-        // Create new user in the users collection
-        await setDoc(doc(db, 'users', user.uid), {
-          email: user.email.toLowerCase(),
+      // Persist the auth state to prevent refresh issues
+      auth.setPersistence(browserLocalPersistence);
+      
+      const result = await signInWithPopup(auth, provider);
+      const userEmail = result.user.email;
+      
+      console.log('Google login attempt:', userEmail);
+      
+      // Special case for admin - always allow and set admin privileges
+      if (userEmail === 'thetangstr@gmail.com') {
+        console.log('Admin login detected');
+        
+        // Create or update admin user in Firestore
+        await setDoc(doc(db, 'users', result.user.uid), {
+          email: userEmail,
+          displayName: result.user.displayName || '',
+          photoURL: result.user.photoURL || '',
+          lastLogin: serverTimestamp(),
+          lastLoginAt: new Date().toISOString(),
           createdAt: serverTimestamp(),
-          status: 'active', // New users are active by default
-          isAdmin: user.email === 'thetangstr@gmail.com'
-        });
-      }
-      
-      // Get user profile from Firestore to check if passcode exists
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      
-      if (userDoc.exists()) {
-        // We can use userData in the future if needed
-        // const userData = userDoc.data();
-        const parentUser = { 
-          uid: user.uid, 
-          email: user.email, 
+          status: 'active',
+          isAdmin: true,
+          loginCount7Days: 1,
+          authEnabled: true
+        }, { merge: true });
+        
+        // Set admin user in state
+        const adminUser = { 
+          uid: result.user.uid, 
+          email: userEmail, 
           role: 'parent',
-          // Explicitly track if user is admin
-          isAdmin: user.email === 'thetangstr@gmail.com'
+          isAdmin: true
         };
         
+        // Update state with admin user
         set({ 
-          currentUser: parentUser, 
-          currentView: 'parentDashboard', 
+          currentUser: adminUser, 
+          currentView: 'adminDashboard', 
           isLoadingAuth: false 
         });
         
         // Record login activity
         await addDoc(collection(db, 'userActivity'), {
-          userId: user.uid,
-          email: user.email,
+          userId: result.user.uid,
+          email: userEmail,
           type: 'login',
           timestamp: serverTimestamp()
         });
         
-        // Update user's last login time
-        await updateDoc(doc(db, 'users', user.uid), {
-          lastLogin: serverTimestamp(),
-          lastLoginAt: new Date().toISOString()
-        });
+        // Wait a moment to ensure state is updated
+        await new Promise(resolve => setTimeout(resolve, 100));
         
-        await get().fetchParentData(parentUser.uid);
-        return parentUser;
-      } else {
-        // Create user document if it doesn't exist (first Google login)
-        await setDoc(doc(db, 'users', user.uid), {
-          email: user.email,
-          createdAt: serverTimestamp(),
-          // Store admin status in Firestore
-          isAdmin: user.email === 'thetangstr@gmail.com'
-        });
+        return adminUser;
+      }
+      
+      // For non-admin users, check if they exist in Firestore
+      const userQuery = query(collection(db, 'users'), where('email', '==', userEmail));
+      const userSnapshot = await getDocs(userQuery);
+      
+      // Check if user has a valid invitation
+      const invitationQuery = query(collection(db, 'invitations'), where('email', '==', userEmail));
+      const invitationSnapshot = await getDocs(invitationQuery);
+      
+      // Allow access if:
+      // 1. User exists in the users collection
+      // 2. User has a valid invitation
+      if (!userSnapshot.empty || !invitationSnapshot.empty) {
+        // If user doesn't exist but has an invitation, create the user
+        if (userSnapshot.empty && !invitationSnapshot.empty) {
+          // Create new user in Firestore
+          await setDoc(doc(db, 'users', result.user.uid), {
+            email: userEmail,
+            displayName: result.user.displayName || '',
+            photoURL: result.user.photoURL || '',
+            createdAt: serverTimestamp(),
+            lastLogin: serverTimestamp(),
+            loginCount: 1,
+            status: 'active',
+            isAdmin: false,
+            authEnabled: true
+          });
+          
+          // Update invitation status
+          const invitationDoc = invitationSnapshot.docs[0];
+          await updateDoc(doc(db, 'invitations', invitationDoc.id), {
+            status: 'accepted',
+            acceptedAt: serverTimestamp()
+          });
+        } else if (!userSnapshot.empty) {
+          // Update existing user's login information
+          const userDoc = userSnapshot.docs[0];
+          const userData = userDoc.data();
+          
+          // Link the Firebase Auth user with the Firestore user if they were created separately
+          // This happens if the user was created directly in Firestore when Email/Password auth was disabled
+          if (userData.authEnabled === false && userDoc.id.startsWith('manual_')) {
+            console.log('Linking manually created Firestore user with Firebase Auth account');
+            
+            // Create a new user document with the Firebase Auth UID
+            await setDoc(doc(db, 'users', result.user.uid), {
+              ...userData,
+              email: userEmail,
+              displayName: result.user.displayName || '',
+              photoURL: result.user.photoURL || '',
+              lastLogin: serverTimestamp(),
+              loginCount: (userData.loginCount || 0) + 1,
+              authEnabled: true,
+              linkedFromManualId: userDoc.id,
+              passwordHash: null // Remove any stored password hash
+            });
+            
+            // Mark the old document as migrated but don't delete it yet
+            await updateDoc(doc(db, 'users', userDoc.id), {
+              status: 'migrated',
+              migratedToId: result.user.uid,
+              migratedAt: serverTimestamp()
+            });
+          } else {
+            // Normal update for existing user
+            await updateDoc(doc(db, 'users', userDoc.id), {
+              lastLogin: serverTimestamp(),
+              loginCount: (userData.loginCount || 0) + 1
+            });
+          }
+        }
         
+        // Set user in state
         const parentUser = { 
-          uid: user.uid, 
-          email: user.email, 
+          uid: result.user.uid, 
+          email: userEmail, 
           role: 'parent',
-          isAdmin: user.email === 'thetangstr@gmail.com'
+          isAdmin: userEmail === 'thetangstr@gmail.com'
         };
         
         set({ 
           currentUser: parentUser, 
-          currentView: 'parentDashboard', 
+          currentView: parentUser.isAdmin ? 'adminDashboard' : 'parentDashboard', 
           isLoadingAuth: false 
         });
+        
+        // Record login activity
+        await addDoc(collection(db, 'userActivity'), {
+          userId: result.user.uid,
+          email: userEmail,
+          type: 'login',
+          timestamp: serverTimestamp()
+        });
+        
+        // Update user's last login time and count if needed
+        if (!userSnapshot.empty) {
+          const userDoc = userSnapshot.docs[0];
+          const userData = userDoc.data();
+          await updateDoc(doc(db, 'users', result.user.uid), {
+            lastLogin: serverTimestamp(),
+            lastLoginAt: new Date().toISOString(),
+            loginCount7Days: (userData.loginCount7Days || 0) + 1
+          });
+        }
+        
+        await get().fetchParentData(parentUser.uid);
         return parentUser;
+      } else if (userEmail === 'thetangstr@gmail.com') {
+        // Special case for admin user's first login
+        await setDoc(doc(db, 'users', result.user.uid), {
+          email: userEmail,
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp(),
+          lastLoginAt: new Date().toISOString(),
+          status: 'active',
+          isAdmin: true,
+          loginCount7Days: 1
+        });
+        
+        const adminUser = { 
+          uid: result.user.uid, 
+          email: userEmail, 
+          role: 'parent',
+          isAdmin: true
+        };
+        
+        set({ 
+          currentUser: adminUser, 
+          currentView: 'adminDashboard', 
+          isLoadingAuth: false 
+        });
+        
+        await get().fetchParentData(result.user.uid);
+        await get().createDefaultQuestsAndRewards(result.user.uid);
+        return adminUser;
+      } else {
+        // This should not happen due to the earlier checks, but just in case
+        await signOut(auth);
+        set({ isLoadingAuth: false });
+        throw new Error('An unexpected error occurred. Please try again or contact support.');
       }
     } catch (error) {
+      console.error('Google login error:', error);
       set({ isLoadingAuth: false });
       throw error;
     }
@@ -719,10 +841,37 @@ const useKiddoQuestStore = create((set, get) => ({
         ...doc.data()
       }));
       
+      // Fetch quest completions for all children
+      let fetchedQuestCompletions = [];
+      
+      if (fetchedChildProfiles.length > 0) {
+        // Get all child IDs
+        const childIds = fetchedChildProfiles.map(child => child.id);
+        
+        // Only fetch if we have child profiles
+        try {
+          // Query completions for all children
+          const completionsQuery = query(
+            collection(db, 'questCompletions'),
+            where('childId', 'in', childIds)
+          );
+          
+          const completionsSnap = await getDocs(completionsQuery);
+          fetchedQuestCompletions = completionsSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+        } catch (error) {
+          console.error("Error fetching quest completions:", error);
+          // Continue even if this fails
+        }
+      }
+      
       set({ 
         childProfiles: fetchedChildProfiles,
         quests: fetchedQuests,
         rewards: fetchedRewards,
+        questCompletions: fetchedQuestCompletions,
         isLoadingData: false
       });
       
@@ -792,6 +941,11 @@ const useKiddoQuestStore = create((set, get) => ({
     set({ isLoadingData: true });
     
     try {
+      // Validate childId
+      if (!childId) {
+        throw new Error('Child ID is required');
+      }
+      
       // Handle avatar image upload if it's a file
       let avatarUrl = updatedData.avatar;
       
@@ -806,8 +960,11 @@ const useKiddoQuestStore = create((set, get) => ({
       const { avatarFile, ...dataToUpdate } = updatedData;
       if (avatarUrl) dataToUpdate.avatar = avatarUrl;
       
+      // Make sure we have a valid document reference
+      const childDocRef = doc(db, 'childProfiles', childId.toString());
+      
       // Update in Firestore
-      await updateDoc(doc(db, 'childProfiles', childId), {
+      await updateDoc(childDocRef, {
         ...dataToUpdate,
         updatedAt: serverTimestamp()
       });
@@ -1115,29 +1272,42 @@ const useKiddoQuestStore = create((set, get) => ({
     set({ isLoadingData: true });
     
     try {
-      const questRef = doc(db, 'quests', questId);
+      // Get the quest details
+      const quest = get().quests.find(q => q.id === questId);
+      if (!quest) {
+        set({ isLoadingData: false });
+        return false;
+      }
       
-      // Update quest status in Firestore
-      await updateDoc(questRef, {
+      // For quests assigned to multiple children, we need to track completions per child
+      // Create a completion record instead of updating the quest directly
+      const completionRef = await addDoc(collection(db, 'questCompletions'), {
+        questId,
+        childId,
         status: 'pending_verification',
-        claimedBy: childId,
         claimedAt: serverTimestamp()
       });
       
-      // Update local state
-      set(state => ({
-        quests: state.quests.map(quest => 
-          quest.id === questId 
-            ? { 
-                ...quest, 
-                status: 'pending_verification', 
-                claimedBy: childId,
-                claimedAt: new Date().toISOString()
-              } 
-            : quest
-        ),
-        isLoadingData: false
-      }));
+      // Update local state - we'll mark the quest as claimed for this child only in the UI
+      // but keep it available for other children
+      set(state => {
+        // Create a new completion record in our local state
+        const questCompletions = state.questCompletions || [];
+        const newCompletion = {
+          id: completionRef.id,
+          questId,
+          childId,
+          status: 'pending_verification',
+          claimedAt: new Date().toISOString()
+        };
+        
+        return {
+          // Add the completion to our state
+          questCompletions: [...questCompletions, newCompletion],
+          // Don't modify the original quest - this keeps it available for other children
+          isLoadingData: false
+        };
+      });
       
       return true;
     } catch (error) {
@@ -1147,26 +1317,35 @@ const useKiddoQuestStore = create((set, get) => ({
     }
   },
   
-  approveQuest: async (questId) => {
+  approveQuest: async (completionId) => {
     set({ isLoadingData: true });
     
     try {
-      // Get the quest to approve
-      const quest = get().quests.find(q => q.id === questId);
-      if (!quest || !quest.claimedBy) {
+      // Get the completion record to approve
+      const questCompletions = get().questCompletions || [];
+      const completion = questCompletions.find(c => c.id === completionId);
+      
+      if (!completion) {
+        set({ isLoadingData: false });
+        return false;
+      }
+      
+      // Get the quest details
+      const quest = get().quests.find(q => q.id === completion.questId);
+      if (!quest) {
         set({ isLoadingData: false });
         return false;
       }
       
       // Get the child who claimed the quest
-      const childProfile = get().childProfiles.find(child => child.id === quest.claimedBy);
+      const childProfile = get().childProfiles.find(child => child.id === completion.childId);
       if (!childProfile) {
         set({ isLoadingData: false });
         return false;
       }
       
-      // Update quest status in Firestore
-      await updateDoc(doc(db, 'quests', questId), {
+      // Update completion status in Firestore
+      await updateDoc(doc(db, 'questCompletions', completionId), {
         status: 'completed',
         completedAt: serverTimestamp()
       });
@@ -1179,43 +1358,30 @@ const useKiddoQuestStore = create((set, get) => ({
       });
       
       // Update local state
-      set(state => ({
-        quests: state.quests.map(q => 
-          q.id === questId 
-            ? { ...q, status: 'completed', completedAt: new Date().toISOString() } 
-            : q
-        ),
-        childProfiles: state.childProfiles.map(child => 
+      set(state => {
+        // Update the completion record
+        const updatedCompletions = (state.questCompletions || []).map(c => 
+          c.id === completionId 
+            ? { ...c, status: 'completed', completedAt: new Date().toISOString() } 
+            : c
+        );
+        
+        // Update the child's XP
+        const updatedProfiles = state.childProfiles.map(child => 
           child.id === childProfile.id 
             ? { ...child, xp: newXP } 
             : child
-        ),
-        isLoadingData: false
-      }));
-      
-      // If quest is recurring, create a new instance
-      if (quest.type === 'recurring') {
-        const { id, status, claimedBy, claimedAt, completedAt, ...recurringQuestData } = quest;
+        );
         
-        // Add a new quest instance to Firestore
-        const newQuestRef = await addDoc(collection(db, 'quests'), {
-          ...recurringQuestData,
-          status: 'new',
-          createdAt: serverTimestamp()
-        });
-        
-        const newQuest = {
-          id: newQuestRef.id,
-          ...recurringQuestData,
-          status: 'new',
-          createdAt: new Date().toISOString()
+        return {
+          questCompletions: updatedCompletions,
+          childProfiles: updatedProfiles,
+          isLoadingData: false
         };
-        
-        // Update local state with the new quest
-        set(state => ({ 
-          quests: [...state.quests, newQuest]
-        }));
-      }
+      });
+      
+      // For daily quests, we don't need to create a new instance for each child
+      // since the original quest remains available to other children
       
       return true;
     } catch (error) {

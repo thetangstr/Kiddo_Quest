@@ -1,38 +1,46 @@
 // Email allowlist for Kiddo Quest
-// This file manages the list of allowed email addresses for the application
+// This file manages access to the application by checking against the users collection in Firestore
+
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../firebase';
 
 /**
- * List of allowed email addresses that can access the application
- * These users will have automatic access without requiring additional verification
+ * Default admin email that always has access
  */
-export const ALLOWED_EMAILS = [
-  'thetangstr@gmail.com',
-  'yteva2017@gmail.com',
-  'thetangstr002@gmail.com',
-  'thetangstr003@gmail.com',
-  'kailortang@gmail.com',
-  'fay.f.deng@gmail.com',
-  'fengxuexu@gmail.com',
-  'tianjieus@gmail.com',
-  'peijingtang@gmail.com',
-  // Add more allowed emails below this line
-];
+export const ADMIN_EMAIL = 'thetangstr@gmail.com';
 
 /**
- * Check if an email is in the allowlist
+ * Check if an email is allowed to access the application
+ * This function checks if the email exists in the Firestore users collection
  * @param {string} email - The email to check
- * @returns {boolean} - Whether the email is allowed
+ * @returns {Promise<boolean>} - Whether the email is allowed
  */
-export const isEmailAllowed = (email) => {
+export const isEmailAllowed = async (email) => {
   if (!email) return false;
+  
+  // Admin email always has access
+  if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    return true;
+  }
   
   // Convert to lowercase for case-insensitive comparison
   const normalizedEmail = email.toLowerCase().trim();
   
-  // Check if email is in the allowlist
-  return ALLOWED_EMAILS.some(allowedEmail => 
-    allowedEmail.toLowerCase() === normalizedEmail
-  );
+  try {
+    // Check if the email exists in the users collection with status 'active'
+    const usersQuery = query(
+      collection(db, 'users'),
+      where('email', '==', normalizedEmail),
+      where('status', '==', 'active')
+    );
+    
+    const usersSnapshot = await getDocs(usersQuery);
+    return !usersSnapshot.empty;
+  } catch (error) {
+    console.error('Error checking if email is allowed:', error);
+    // If there's an error, default to not allowed
+    return false;
+  }
 };
 
 /**

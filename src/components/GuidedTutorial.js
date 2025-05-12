@@ -15,75 +15,84 @@ export const GuidedTutorial = () => {
   
   const { navigateTo, currentView } = useKiddoQuestStore();
   
-  // Tutorial steps with their content and selectors
+  // Tutorial steps with their content and selectors - simplified for first-run experience
   const TUTORIAL_STEPS = [
     {
       id: 'welcome',
       title: 'Welcome to Kiddo Quest!',
-      content: 'This tutorial will guide you through creating and managing quests for your children. Let\'s get started!',
+      content: 'This quick tutorial will help you get started with Kiddo Quest. We\'ll walk through the 4 essential steps to set up your family reward system.',
       selector: null, // No specific element to highlight for welcome
       view: 'parentDashboard',
       position: 'center',
       action: null
     },
     {
-      id: 'manage_quests',
-      title: 'Step 1: Manage Quests',
-      content: 'Click on "Manage Quests" to start creating fun missions for your child.',
+      id: 'add_child',
+      title: 'Step 1: Create a Child Profile',
+      content: 'First, let\'s add a child profile. Click the "Add Child" button to create your first child profile.',
+      selector: '[data-tutorial="add-child"]',
+      view: 'parentDashboard',
+      position: 'bottom',
+      action: () => navigateTo('addChild')
+    },
+    {
+      id: 'child_profile_form',
+      title: 'Create Your Child Profile',
+      content: 'Enter your child\'s name and optionally upload an avatar. This profile will track their progress and rewards.',
+      selector: '[data-tutorial="child-form"]',
+      view: 'addChild',
+      position: 'right',
+      action: null // User needs to fill out the form
+    },
+    {
+      id: 'pre_populated_quests',
+      title: 'Step 2: Assign Quests to Your Child',
+      content: 'We\'ve created some starter quests for you! Click "Manage Quests" to see them and assign them to your child.',
       selector: '[data-tutorial="manage-quests"]',
       view: 'parentDashboard',
       position: 'bottom',
       action: () => navigateTo('manageQuests')
     },
     {
-      id: 'create_quest',
-      title: 'Step 2: Create a New Quest',
-      content: 'Click "Create New Quest" to add a new activity for your child.',
-      selector: '[data-tutorial="create-quest"]',
+      id: 'assign_quests',
+      title: 'Assign Quests',
+      content: 'Select a quest and click "Edit" to assign it to your child. Make sure to check their name in the "Assign To" section.',
+      selector: '[data-tutorial="quest-list"]',
       view: 'manageQuests',
-      position: 'bottom',
-      action: () => navigateTo('questForm')
-    },
-    {
-      id: 'fill_quest_form',
-      title: 'Step 3: Fill Quest Details',
-      content: 'Enter a title, description, and XP reward for the quest. Then click "Create Quest" to save it.',
-      selector: '[data-tutorial="quest-form"]',
-      view: 'questForm',
       position: 'right',
-      action: null // User needs to fill out the form
+      action: null
     },
     {
-      id: 'child_dashboard',
-      title: 'Step 4: Child Dashboard',
-      content: 'Your child will see their quests here. They can click "Complete" when they finish a task.',
-      selector: '[data-tutorial="child-dashboard"]',
+      id: 'child_completes',
+      title: 'Step 3: Child Quest Completion',
+      content: 'Now let\'s see how your child completes quests. Click "View Dashboard" next to your child\'s profile to see their view.',
+      selector: '[data-tutorial="child-profiles"]',
+      view: 'parentDashboard',
+      position: 'bottom',
+      action: null // User needs to select a child
+    },
+    {
+      id: 'child_view',
+      title: 'Child\'s Dashboard',
+      content: 'This is what your child will see. They can complete quests by clicking the "Complete" button. Try it now!',
+      selector: '[data-tutorial="available-quests"]',
       view: 'childDashboard',
       position: 'top',
       action: null
     },
     {
-      id: 'parent_approve',
-      title: 'Step 5: Parent Approval',
-      content: 'Once your child marks a quest as complete, you\'ll see it here for approval. Click "Approve" to award XP.',
-      selector: '[data-tutorial="pending-quests"]',
-      view: 'parentDashboard',
-      position: 'bottom',
-      action: null
-    },
-    {
-      id: 'claim_reward',
-      title: 'Step 6: Claim Rewards',
-      content: 'Your child can use earned XP to claim rewards you\'ve created. They\'ll see available rewards in their dashboard.',
-      selector: '[data-tutorial="rewards-section"]',
+      id: 'parent_approval',
+      title: 'Parent Approval',
+      content: 'After your child completes a quest, you\'ll need to approve it. Return to the parent dashboard to see pending approvals.',
+      selector: '[data-tutorial="parent-link"]',
       view: 'childDashboard',
-      position: 'bottom',
+      position: 'top',
       action: null
     },
     {
       id: 'setup_pin',
-      title: 'Step 7: Set Up Your PIN',
-      content: 'Set up a 4-digit PIN to protect your parent dashboard. This PIN will be required when accessing parent features from the child dashboard.',
+      title: 'Step 4: Set Up Your Parent PIN',
+      content: 'Important! Set up a 4-digit PIN to protect your parent dashboard. This prevents children from approving their own quests.',
       selector: '[data-tutorial="pin-setup"]',
       view: 'parentDashboard',
       position: 'bottom',
@@ -91,8 +100,8 @@ export const GuidedTutorial = () => {
     },
     {
       id: 'complete',
-      title: 'You\'re Ready!',
-      content: 'That\'s it! You now know how to use Kiddo Quest. Explore the app to discover more features!',
+      title: 'You\'re All Set!',
+      content: 'Great job! You\'ve completed the essential setup for Kiddo Quest. Explore the app to discover more features like custom rewards and recurring quests!',
       selector: null,
       view: 'parentDashboard',
       position: 'center',
@@ -222,7 +231,7 @@ export const GuidedTutorial = () => {
     }
   }, [targetElement, tooltipPosition]);
   
-  // Handle next step
+  // Handle next step or close
   const handleNext = () => {
     if (currentStep < TUTORIAL_STEPS.length - 1) {
       // Execute action if defined
@@ -232,7 +241,9 @@ export const GuidedTutorial = () => {
       
       setCurrentStep(currentStep + 1);
     } else {
-      handleComplete();
+      // Mark tutorial as seen when completed
+      localStorage.setItem('kiddoquest_tutorial_seen', 'true');
+      setIsVisible(false);
     }
   };
   

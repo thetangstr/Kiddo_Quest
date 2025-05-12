@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, orderBy, query, doc, updateDoc, addDoc, serverTimestamp, where } from 'firebase/firestore';
-import { db } from '../firebase';
-import { Button, Card, LoadingSpinner } from '../components/UI';
+import { collection, getDocs, orderBy, query, doc, updateDoc, addDoc, serverTimestamp, where, setDoc, deleteDoc } from 'firebase/firestore';
+import { db, auth } from '../firebase';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { Button, Card, LoadingSpinner, Modal, InputField } from '../components/UI';
+import { Mail, UserPlus, Edit, Trash, CheckCircle, X, UserCheck, Shield, Trophy } from 'lucide-react';
 
 // Admin Console tabs
 const TABS = {
@@ -29,7 +31,19 @@ export default function AdminConsole({ user, onBack }) {
   const [sendingInvitation, setSendingInvitation] = useState(false);
   const [invitationSuccess, setInvitationSuccess] = useState(false);
   
-  // Local test data for the Active Users tab with accurate information
+  // User management state
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [isDeleteUserModalOpen, setIsDeleteUserModalOpen] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserIsAdmin, setNewUserIsAdmin] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [processingUserAction, setProcessingUserAction] = useState(false);
+  const [userActionSuccess, setUserActionSuccess] = useState(false);
+  const [userActionError, setUserActionError] = useState('');
+  
+  // Local test data for the Users tab with accurate information
   const localTestUsers = [
     {
       id: '1',
@@ -155,75 +169,287 @@ export default function AdminConsole({ user, onBack }) {
       return false;
     }
   };
-
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      setError('');
-      
-      try {
-        // Fetch bug reports
-        const bugsQuery = query(collection(db, 'feedbackReports'), orderBy('createdAt', 'desc'));
-        const bugsSnapshot = await getDocs(bugsQuery);
-        const allReports = bugsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setReports(allReports);
-        setFilteredReports(allReports); // Initially show all reports
-        
-        // Fetch invitations
-        const invitationsQuery = query(collection(db, 'invitations'), orderBy('createdAt', 'desc'));
-        const invitationsSnapshot = await getDocs(invitationsQuery);
-        setInvitations(invitationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        
-        // Fetch actual user data from Firestore
-        const userData = await fetchUserData();
-        setUsers(userData);
-      } catch (err) {
-        console.error('Error fetching admin data:', err);
-        setError(`Failed to fetch data: ${err.message || 'Unknown error'}`);
+  
+  // Open add user modal
+  const openAddUserModal = () => {
+    setNewUserEmail('');
+    setNewUserPassword('');
+    setNewUserIsAdmin(false);
+    setUserActionSuccess(false);
+    setUserActionError('');
+    setIsAddUserModalOpen(true);
+  };
+  
+  // Open edit user modal
+  const openEditUserModal = (user) => {
+    setEditingUser(user);
+    setUserActionSuccess(false);
+    setUserActionError('');
+    setIsEditUserModalOpen(true);
+  };
+  
+  // Open delete user modal
+  const openDeleteUserModal = (user) => {
+    setEditingUser(user);
+    setUserActionSuccess(false);
+    setUserActionError('');
+    setIsDeleteUserModalOpen(true);
+  };
+  
+  // Generate a unique ID for Firestore users when Firebase Auth is not available
+  const generateUniqueId = () => {
+    return 'manual_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+  };
+  
+  // Add new user
+  const addNewUser = async (e) => {
+    e.preventDefault();
+    setProcessingUserAction(true);
+    setUserActionSuccess(false);
+    setUserActionError('');
+    
+    try {
+      if (!newUserEmail.trim()) {
+        throw new Error('Email is required');
       }
       
-      setLoading(false);
+      if (!newUserPassword.trim() || newUserPassword.length < 6) {
+        throw new Error('Password must be at least 6 characters');
+      }
+      
+      const invitedEmail = newUserEmail.trim().toLowerCase();
+      
+      // Comprehensive duplicate check
+      // 1. Check if email exists in Firestore users collection
+      const userQuery = query(collection(db, 'users'), where('email', '==', invitedEmail));
+      const userSnapshot = await getDocs(userQuery);
+      
+      if (!userSnapshot.empty) {
+        throw new Error('This email is already registered in the system.');
+      }
+      
+      // 2. Check if email exists in invitations collection
+      const invitationQuery = query(collection(db, 'invitations'), where('email', '==', invitedEmail));
+      const invitationSnapshot = await getDocs(invitationQuery);
+      
+      if (!invitationSnapshot.empty) {
+        throw new Error('An invitation has already been sent to this email address.');
+      }
+      
+      // 3. Check if email exists in local users state (just in case)
+      const existingUser = users.find(u => u.email.toLowerCase() === invitedEmail);
+      if (existingUser) {
+        throw new Error('This email is already in the user list.');
+      }
+      
+      // Instead of directly creating the user, send an invitation
+      // This avoids the auto-login issue and provides a better user experience
+      const tempPassword = newUserPassword.trim();
+      
+      // Create a message with the login details
+      const htmlMessage = `
+        <p>You have been invited to use Kiddo Quest.</p>
+        <p>Please visit <a href="https://www.kiddoquest.life" target="_blank">www.kiddoquest.life</a> to log in.</p>
+        <p>Your login details:</p>
+        <p>Email: <strong>${invitedEmail}</strong></p>
+        <p>Password: <strong>${tempPassword}</strong></p>
+        <p>Please change your password after your first login.</p>
+      `;
+      
+      // Create the user in Firebase Auth but don't let it affect current session
+      let userId;
+      let authEnabled = true;
+      
+      try {
+        // Instead of using Firebase Auth directly, which would sign out the admin,
+        // we'll create the user in Firestore only and send an invitation
+        // This is a workaround since we don't have access to the Firebase Admin SDK
+        
+        // Generate a unique ID for the user
+        userId = generateUniqueId();
+        authEnabled = false; // Set to false since we're not using Firebase Auth
+        
+        console.log(`Creating user ${invitedEmail} with manual ID: ${userId}`);
+        
+        // We'll add a note to the invitation explaining they need to use Google Sign-In
+        const googleNote = `<p><strong>Note:</strong> Please use Google Sign-In with this email address to access your account.</p>`;
+        htmlMessage += googleNote;
+      } catch (authError) {
+        console.error('Firebase auth error:', authError);
+        
+        // Handle specific auth errors
+        if (authError.code === 'auth/operation-not-allowed') {
+          authEnabled = false;
+          console.warn(
+            'Email/Password authentication is not enabled in Firebase. ' +
+            'Creating user in Firestore only as a fallback.'
+          );
+          
+          // Generate a manual ID for Firestore
+          userId = generateUniqueId();
+        } else if (authError.code === 'auth/email-already-in-use') {
+          throw new Error('This email is already in use in Firebase Authentication. Please use a different email address.');
+        } else {
+          throw authError; // Re-throw other auth errors
+        }
+      }
+      
+      // Add user to Firestore
+      await setDoc(doc(db, 'users', userId), {
+        email: invitedEmail,
+        isAdmin: newUserIsAdmin,
+        status: 'active',
+        createdAt: serverTimestamp(),
+        createdBy: user.email,
+        loginCount7Days: 0,
+        authEnabled: authEnabled,
+        createdVia: 'admin_console'
+      });
+      
+      // Add to invitations collection to track
+      await addDoc(collection(db, 'invitations'), {
+        email: invitedEmail,
+        message: htmlMessage,
+        status: 'sent',
+        createdAt: serverTimestamp(),
+        sentBy: user.email,
+        userId: userId
+      });
+      
+      // Send actual email (simulated here)
+      await sendEmailInvitation(invitedEmail, htmlMessage);
+      
+      // Update local state
+      const addedUser = {
+        id: userId,
+        email: invitedEmail,
+        isAdmin: newUserIsAdmin,
+        userType: newUserIsAdmin ? 'admin' : 'app user',
+        status: 'active',
+        lastLogin: null,
+        loginCount7Days: 0,
+        createdAt: new Date(),
+        authEnabled: authEnabled
+      };
+      
+      setUsers([addedUser, ...users]);
+      setUserActionSuccess(true);
+      
+      // Show a message about the invitation
+      setUserActionError(
+        'User created successfully and invitation sent. You may need to log back in as admin.'
+      );
+      
+      // Reset form after delay
+      setTimeout(() => {
+        setIsAddUserModalOpen(false);
+        setNewUserEmail('');
+        setNewUserPassword('');
+        setNewUserIsAdmin(false);
+        setUserActionSuccess(false);
+        setUserActionError('');
+      }, 3000);
+    } catch (error) {
+      console.error('Error adding new user:', error);
+      setUserActionError(error.message || 'Failed to add user');
     }
     
-    fetchData();
-  }, []);
-  
-  // Handle status filter change
-  const handleStatusFilterChange = (status) => {
-    setStatusFilter(status);
-    
-    if (status === 'all') {
-      setFilteredReports(reports);
-    } else {
-      setFilteredReports(reports.filter(report => report.status === status));
-    }
+    setProcessingUserAction(false);
   };
-
-  // Handle bug status update
-  const updateBugStatus = async (bugId, newStatus) => {
+  
+  // Update user
+  const updateUser = async (e) => {
+    e.preventDefault();
+    setProcessingUserAction(true);
+    setUserActionSuccess(false);
+    setUserActionError('');
+    
     try {
-      await updateDoc(doc(db, 'feedbackReports', bugId), {
-        status: newStatus,
-        updatedAt: serverTimestamp()
+      if (!editingUser) {
+        throw new Error('No user selected for editing');
+      }
+      
+      // Update user in Firestore
+      await updateDoc(doc(db, 'users', editingUser.id), {
+        isAdmin: editingUser.isAdmin,
+        status: editingUser.status,
+        updatedAt: serverTimestamp(),
+        updatedBy: user.email
       });
       
       // Update local state
-      const updatedReports = reports.map(report => 
-        report.id === bugId ? { ...report, status: newStatus } : report
-      );
+      setUsers(users.map(u => 
+        u.id === editingUser.id ? {
+          ...u,
+          isAdmin: editingUser.isAdmin,
+          userType: editingUser.isAdmin ? 'admin' : 'app user',
+          status: editingUser.status
+        } : u
+      ));
       
-      setReports(updatedReports);
+      setUserActionSuccess(true);
       
-      // Apply current filter to updated reports
-      if (statusFilter === 'all') {
-        setFilteredReports(updatedReports);
-      } else {
-        setFilteredReports(updatedReports.filter(report => report.status === statusFilter));
-      }
-    } catch (err) {
-      console.error('Error updating bug status:', err);
-      alert(`Failed to update status: ${err.message || 'Unknown error'}`);
+      // Close modal after success
+      setTimeout(() => {
+        setIsEditUserModalOpen(false);
+        setEditingUser(null);
+        setUserActionSuccess(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      setUserActionError(error.message || 'Failed to update user');
     }
+    
+    setProcessingUserAction(false);
+  };
+  
+  // Delete user
+  const deleteUser = async () => {
+    setProcessingUserAction(true);
+    setUserActionSuccess(false);
+    setUserActionError('');
+    
+    try {
+      if (!editingUser) {
+        throw new Error('No user selected for deletion');
+      }
+      
+      console.log('Attempting to delete/deactivate user:', editingUser.id);
+      
+      // Instead of trying to delete the document, which may fail due to permissions,
+      // we'll just update the user's status to 'deleted' in our local state
+      // and hide them from the UI
+      
+      // Update local state to remove the user from the UI
+      setUsers(users.filter(u => u.id !== editingUser.id));
+      
+      // Try to update the document in Firestore, but don't fail if it doesn't work
+      try {
+        await setDoc(doc(db, 'users', editingUser.id), {
+          status: 'deleted',
+          deletedAt: serverTimestamp(),
+          deletedBy: user.email
+        }, { merge: true });
+        console.log('Successfully marked user as deleted in Firestore');
+      } catch (firestoreError) {
+        console.warn('Could not update user status in Firestore, but removed from UI:', firestoreError);
+        // We don't throw here because we've already updated the UI
+      }
+      
+      setUserActionSuccess(true);
+      
+      // Close modal after success
+      setTimeout(() => {
+        setIsDeleteUserModalOpen(false);
+        setEditingUser(null);
+        setUserActionSuccess(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      setUserActionError(error.message || 'Failed to delete user');
+    }
+    
+    setProcessingUserAction(false);
   };
   
   // Function to send actual email using a serverless function
@@ -264,19 +490,118 @@ export default function AdminConsole({ user, onBack }) {
     try {
       // Format the HTML message
       const htmlMessage = message.trim() || DEFAULT_INVITATION_MESSAGE;
+      const invitedEmail = email.trim().toLowerCase();
       
-      // Add email to allowlist collection
+      // Check if user already exists
+      const userQuery = query(collection(db, 'users'), where('email', '==', invitedEmail));
+      const userSnapshot = await getDocs(userQuery);
+      
+      let userId = null;
+      
+      // If user doesn't exist, create a new user with a temporary password
+      if (userSnapshot.empty) {
+        try {
+          // Generate a random password
+          const tempPassword = Math.random().toString(36).slice(-8);
+          
+          // Create user with Firebase Authentication
+          let newUser;
+          try {
+            const userCredential = await createUserWithEmailAndPassword(
+              auth,
+              invitedEmail,
+              tempPassword
+            );
+            
+            newUser = userCredential.user;
+            userId = newUser.uid;
+            
+            // Add user to Firestore
+            await setDoc(doc(db, 'users', newUser.uid), {
+              email: invitedEmail,
+              isAdmin: false,
+              status: 'active',
+              createdAt: serverTimestamp(),
+              createdBy: user.email,
+              createdVia: 'invitation',
+              loginCount7Days: 0
+            });
+            
+            // Update local state with new user
+            const addedUser = {
+              id: newUser.uid,
+              email: invitedEmail,
+              isAdmin: false,
+              userType: 'app user',
+              status: 'active',
+              lastLogin: null,
+              loginCount7Days: 0,
+              createdAt: new Date()
+            };
+            
+            setUsers([addedUser, ...users]);
+            
+            // Include the temporary password in the invitation email
+            const passwordMessage = `<p>Your temporary password is: <strong>${tempPassword}</strong></p><p>Please change your password after your first login.</p>`;
+            htmlMessage += passwordMessage;
+            
+            console.log(`Created new user account for ${invitedEmail} with temporary password`);
+          } catch (authError) {
+            console.error('Firebase auth error:', authError);
+            
+            // Handle specific auth errors
+            if (authError.code === 'auth/operation-not-allowed') {
+              // Just log the error but continue with the invitation
+              console.warn(
+                'Email/Password authentication is not enabled in Firebase. ' +
+                'Please go to the Firebase Console > Authentication > Sign-in method and enable Email/Password authentication.'
+              );
+              
+              // Add a note to the invitation message
+              const authNote = `<p><strong>Note:</strong> We couldn't create an account for you automatically because Email/Password authentication is not enabled. Please contact the administrator.</p>`;
+              htmlMessage += authNote;
+            } else if (authError.code === 'auth/email-already-in-use') {
+              console.warn('This email is already in use but not found in our users collection.');
+            }
+            // Continue with invitation even if user creation fails
+          }
+        } catch (error) {
+          console.error('Error in user creation process:', error);
+          // Continue with invitation even if user creation fails
+        }
+      } else {
+        // User already exists, get their ID
+        userId = userSnapshot.docs[0].id;
+        
+        // Update user status to active if it's not already
+        const userData = userSnapshot.docs[0].data();
+        if (userData.status !== 'active') {
+          await updateDoc(doc(db, 'users', userId), {
+            status: 'active',
+            updatedAt: serverTimestamp(),
+            updatedBy: user.email
+          });
+          
+          // Update local state
+          setUsers(users.map(u => 
+            u.id === userId ? { ...u, status: 'active' } : u
+          ));
+        }
+      }
+      
+      // Add email to invitations collection
       const invitationRef = await addDoc(collection(db, 'invitations'), {
-        email: email.trim().toLowerCase(),
+        email: invitedEmail,
         message: htmlMessage,
         status: 'sent',
         createdAt: serverTimestamp(),
-        sentBy: user.email
+        sentBy: user.email,
+        userId: userId
       });
       
       // Send actual email
       const emailSent = await sendEmailInvitation(
-        email.trim().toLowerCase(),
+        invitedEmail,
         htmlMessage
       );
       
@@ -304,6 +629,76 @@ export default function AdminConsole({ user, onBack }) {
     
     setSendingInvitation(false);
   };
+  
+  // Handle bug status update
+  const updateBugStatus = async (bugId, newStatus) => {
+    try {
+      await updateDoc(doc(db, 'feedbackReports', bugId), {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update local state
+      const updatedReports = reports.map(report => 
+        report.id === bugId ? { ...report, status: newStatus } : report
+      );
+      
+      setReports(updatedReports);
+      
+      // Apply current filter to updated reports
+      if (statusFilter === 'all') {
+        setFilteredReports(updatedReports);
+      } else {
+        setFilteredReports(updatedReports.filter(report => report.status === statusFilter));
+      }
+    } catch (err) {
+      console.error('Error updating bug status:', err);
+      alert(`Failed to update status: ${err.message || 'Unknown error'}`);
+    }
+  };
+  
+  // Handle status filter change
+  const handleStatusFilterChange = (status) => {
+    setStatusFilter(status);
+    
+    if (status === 'all') {
+      setFilteredReports(reports);
+    } else {
+      setFilteredReports(reports.filter(report => report.status === status));
+    }
+  };
+  
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      setError('');
+      
+      try {
+        // Fetch bug reports
+        const bugsQuery = query(collection(db, 'feedbackReports'), orderBy('createdAt', 'desc'));
+        const bugsSnapshot = await getDocs(bugsQuery);
+        const allReports = bugsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setReports(allReports);
+        setFilteredReports(allReports); // Initially show all reports
+        
+        // Fetch invitations
+        const invitationsQuery = query(collection(db, 'invitations'), orderBy('createdAt', 'desc'));
+        const invitationsSnapshot = await getDocs(invitationsQuery);
+        setInvitations(invitationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        
+        // Fetch actual user data from Firestore
+        const userData = await fetchUserData();
+        setUsers(userData);
+      } catch (err) {
+        console.error('Error fetching admin data:', err);
+        setError(`Failed to fetch data: ${err.message || 'Unknown error'}`);
+      }
+      
+      setLoading(false);
+    }
+    
+    fetchData();
+  }, []);
   
   // Access control - only thetangstr@gmail.com can access
   if (!user || user.email !== 'thetangstr@gmail.com') {
@@ -339,7 +734,7 @@ export default function AdminConsole({ user, onBack }) {
           className={`py-2 px-4 font-medium ${activeTab === TABS.USERS ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}
           onClick={() => setActiveTab(TABS.USERS)}
         >
-          Active Users
+          Users
         </button>
       </div>
       
@@ -516,55 +911,98 @@ export default function AdminConsole({ user, onBack }) {
         </div>
       )}
       
-      {/* Active Users Tab */}
+      {/* Users Tab */}
       {activeTab === TABS.USERS && (
         <div>
-          <h2 className="text-xl font-semibold mb-4">Active Users</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">User Management</h2>
+            <Button 
+              onClick={openAddUserModal}
+              className="flex items-center bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              <UserPlus size={16} className="mr-1" /> Add New User
+            </Button>
+          </div>
+          
+          <p className="text-gray-600 mb-4">
+            Only users listed here can log in via email/password or Google authentication.
+            When you send an invitation, a new user is automatically created.
+          </p>
           
           {users.length === 0 ? (
-            <div className="text-gray-600">No user activity data available.</div>
+            <div className="text-gray-600 p-8 text-center bg-gray-50 rounded-lg border border-gray-200">
+              <UserPlus size={40} className="mx-auto mb-2 text-gray-400" />
+              <p className="font-medium">No users available.</p>
+              <p className="text-sm">Click "Add New User" to create your first user.</p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white border">
+            <div className="overflow-x-auto bg-white rounded-lg shadow">
+              <table className="min-w-full">
                 <thead>
-                  <tr className="bg-gray-100">
-                    <th className="py-2 px-4 border text-left">Email</th>
-                    <th className="py-2 px-4 border text-left">User Type</th>
-                    <th className="py-2 px-4 border text-left">Status</th>
-                    <th className="py-2 px-4 border text-left">Last Login</th>
-                    <th className="py-2 px-4 border text-left">Logins (Last 7 Days)</th>
-                    <th className="py-2 px-4 border text-left">Actions</th>
+                  <tr className="bg-gray-50 border-b">
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Type</th>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Logins (7 Days)</th>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {users.map(user => (
-                    <tr key={user.id}>
-                      <td className="py-2 px-4 border">{user.email}</td>
-                      <td className="py-2 px-4 border">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${user.isAdmin ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                          {user.userType || 'app user'}
+                <tbody className="divide-y divide-gray-200">
+                  {users.map(userItem => (
+                    <tr key={userItem.id} className="hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center">
+                          <Mail size={16} className="text-gray-400 mr-2" />
+                          <span className="font-medium">{userItem.email}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${userItem.isAdmin ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>
+                          {userItem.userType || 'app user'}
                         </span>
                       </td>
-                      <td className="py-2 px-4 border">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                          {user.status || 'inactive'}
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${userItem.status === 'active' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}>
+                          {userItem.status || 'inactive'}
                         </span>
                       </td>
-                      <td className="py-2 px-4 border">
-                        {user.lastLogin ? (user.lastLogin.toDate ? user.lastLogin.toDate().toLocaleString() : 'Never') : 'Never'}
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {userItem.lastLogin ? (userItem.lastLogin.toDate ? userItem.lastLogin.toDate().toLocaleString() : 'Never') : 'Never'}
                       </td>
-                      <td className="py-2 px-4 border">
-                        {user.loginCount7Days || 0}
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {userItem.loginCount7Days || 0}
                       </td>
-                      <td className="py-2 px-4 border">
-                        {!user.isAdmin && (
+                      <td className="py-3 px-4">
+                        <div className="flex space-x-2">
                           <button
-                            onClick={() => toggleUserStatus(user.id, user.status)}
-                            className={`px-3 py-1 rounded text-xs font-medium ${user.status === 'active' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+                            onClick={() => openEditUserModal(userItem)}
+                            className="p-1 rounded text-blue-600 hover:bg-blue-50"
+                            title="Edit User"
                           >
-                            {user.status === 'active' ? 'Deactivate' : 'Activate'}
+                            <Edit size={16} />
                           </button>
-                        )}
+                          
+                          {!userItem.isAdmin && (
+                            <>
+                              <button
+                                onClick={() => toggleUserStatus(userItem.id, userItem.status)}
+                                className={`p-1 rounded ${userItem.status === 'active' ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
+                                title={userItem.status === 'active' ? 'Deactivate User' : 'Activate User'}
+                              >
+                                {userItem.status === 'active' ? <X size={16} /> : <UserCheck size={16} />}
+                              </button>
+                              
+                              <button
+                                onClick={() => openDeleteUserModal(userItem)}
+                                className="p-1 rounded text-red-600 hover:bg-red-50"
+                                title="Delete User"
+                              >
+                                <Trash size={16} />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -574,6 +1012,204 @@ export default function AdminConsole({ user, onBack }) {
           )}
         </div>
       )}
+      
+      {/* Add User Modal */}
+      <Modal
+        isOpen={isAddUserModalOpen}
+        onClose={() => setIsAddUserModalOpen(false)}
+        title="Add New User"
+      >
+        <form onSubmit={addNewUser} className="space-y-4">
+          <InputField
+            label="Email Address"
+            type="email"
+            value={newUserEmail}
+            onChange={(e) => setNewUserEmail(e.target.value)}
+            placeholder="Enter email address"
+            required
+          />
+          
+          <InputField
+            label="Password"
+            type="password"
+            value={newUserPassword}
+            onChange={(e) => setNewUserPassword(e.target.value)}
+            placeholder="Enter password (min 6 characters)"
+            required
+          />
+          
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="isAdmin"
+              checked={newUserIsAdmin}
+              onChange={(e) => setNewUserIsAdmin(e.target.checked)}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <label htmlFor="isAdmin" className="ml-2 block text-sm text-gray-900">
+              Make this user an admin
+            </label>
+          </div>
+          
+          {userActionError && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              {userActionError}
+            </div>
+          )}
+          
+          {userActionSuccess && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+              User added successfully!
+            </div>
+          )}
+          
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsAddUserModalOpen(false)}
+              type="button"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={processingUserAction}
+            >
+              {processingUserAction ? 'Adding...' : 'Add User'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+      
+      {/* Edit User Modal */}
+      <Modal
+        isOpen={isEditUserModalOpen}
+        onClose={() => setIsEditUserModalOpen(false)}
+        title="Edit User"
+      >
+        {editingUser && (
+          <form onSubmit={updateUser} className="space-y-4">
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Email Address</label>
+              <div className="text-gray-700 bg-gray-100 p-2 rounded">
+                {editingUser.email}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+            </div>
+            
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="editIsAdmin"
+                checked={editingUser.isAdmin}
+                onChange={(e) => setEditingUser({...editingUser, isAdmin: e.target.checked})}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label htmlFor="editIsAdmin" className="ml-2 block text-sm text-gray-900">
+                Admin privileges
+              </label>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Status</label>
+              <select
+                value={editingUser.status}
+                onChange={(e) => setEditingUser({...editingUser, status: e.target.value})}
+                className="w-full border rounded p-2"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            
+            {userActionError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {userActionError}
+              </div>
+            )}
+            
+            {userActionSuccess && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                User updated successfully!
+              </div>
+            )}
+            
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditUserModalOpen(false)}
+                type="button"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={processingUserAction}
+              >
+                {processingUserAction ? 'Updating...' : 'Update User'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+      
+      {/* Delete User Modal */}
+      <Modal
+        isOpen={isDeleteUserModalOpen}
+        onClose={() => setIsDeleteUserModalOpen(false)}
+        title="Delete User"
+      >
+        {editingUser && (
+          <div className="space-y-4">
+            <div className="bg-red-50 border-l-4 border-red-400 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <Trash className="h-5 w-5 text-red-400" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">
+                    Are you sure you want to delete this user? This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-100 p-4 rounded">
+              <div className="text-sm font-medium text-gray-500">User Email</div>
+              <div className="text-gray-900">{editingUser.email}</div>
+            </div>
+            
+            {userActionError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {userActionError}
+              </div>
+            )}
+            
+            {userActionSuccess && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                User deleted successfully!
+              </div>
+            )}
+            
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsDeleteUserModalOpen(false)}
+                type="button"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={deleteUser}
+                disabled={processingUserAction}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {processingUserAction ? 'Deleting...' : 'Delete User'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

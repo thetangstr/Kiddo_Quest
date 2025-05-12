@@ -10,6 +10,7 @@ const ParentDashboard = () => {
   const { 
     childProfiles, 
     quests,
+    questCompletions,
     navigateTo, 
     logout, 
     isLoadingData,
@@ -57,9 +58,6 @@ const ParentDashboard = () => {
       </div>
     );
   }
-  
-  // Filter quests that need verification
-  const pendingQuests = quests.filter(quest => quest.status === 'pending_verification');
   
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -164,45 +162,86 @@ const ParentDashboard = () => {
       </section>
       
       {/* Pending Verification Section */}
-      {pendingQuests.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center mb-4">
-            <Shield className="mr-2" />
-            <h2 className="text-xl font-semibold">Quests Pending Verification</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pendingQuests.map(quest => {
-              const child = childProfiles.find(c => c.id === quest.claimedBy);
-              
-              return (
-                <Card key={quest.id} className="p-6">
-                  <div className="flex items-start mb-4">
-                    <div className="mr-4 text-indigo-600">
-                      {renderLucideIcon(quest.iconName || 'CheckCircle', { size: 24 })}
+      {/* Get pending quest completions from the questCompletions collection */}
+      {(() => {
+        // Get all pending completions
+        const pendingCompletions = (questCompletions || []).filter(completion => 
+          completion.status === 'pending_verification'
+        );
+        
+        // Only render this section if there are pending completions
+        if (pendingCompletions.length === 0) return null;
+        
+        return (
+          <section className="mb-8">
+            <div className="flex items-center mb-4">
+              <Shield className="mr-2" />
+              <h2 className="text-xl font-semibold">Quests Pending Verification</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pendingCompletions.map(completion => {
+                // Find the original quest details
+                const quest = quests.find(q => q.id === completion.questId);
+                if (!quest) return null;
+                
+                // Find the child who claimed it
+                const child = childProfiles.find(c => c.id === completion.childId);
+                
+                return (
+                  <Card key={completion.id} className="p-6">
+                    <div className="flex items-start mb-4">
+                      <div className="mr-4 text-indigo-600">
+                        {renderLucideIcon(quest.iconName || 'CheckCircle', { size: 24 })}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-medium">{quest.title}</h3>
+                        <p className="text-sm text-gray-600 mb-2">{quest.description}</p>
+                        <p className="text-sm text-indigo-600 font-medium">
+                          {quest.xp} XP • Claimed by {child?.name || 'Unknown'}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-medium">{quest.title}</h3>
-                      <p className="text-sm text-gray-600 mb-2">{quest.description}</p>
-                      <p className="text-sm text-indigo-600 font-medium">
-                        {quest.xp} XP • Claimed by {child?.name || 'Unknown'}
-                      </p>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="success" 
-                    icon={CheckCircle} 
-                    className="w-full"
-                    onClick={() => approveQuest(quest.id)}
-                  >
-                    Approve Completion
-                  </Button>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-      )}
+                    <Button 
+                      variant="success" 
+                      icon={CheckCircle} 
+                      className="w-full"
+                      onClick={() => approveQuest(completion.id)}
+                    >
+                      Approve Completion
+                    </Button>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
+      
+      {/* Security Settings */}
+      <section className="mb-8">
+        <div className="flex items-center mb-4">
+          <Key className="mr-2" />
+          <h2 className="text-xl font-semibold">Security Settings</h2>
+        </div>
+        
+        <Card className="p-6" data-tutorial="pin-setup">
+          <h3 className="text-lg font-medium flex items-center mb-4">
+            <Key className="mr-2 text-indigo-600" /> Parent PIN Protection
+          </h3>
+          <p className="text-gray-500 mb-4">
+            {hasPinSet ? 
+              "You have set up a PIN to protect your parent dashboard. This prevents children from accessing parent features." :
+              "Set up a 4-digit PIN to protect your parent dashboard. This prevents children from approving their own quests."}
+          </p>
+          <Button 
+            variant={hasPinSet ? "outline" : "primary"} 
+            onClick={() => setShowPinSetup(true)}
+          >
+            {hasPinSet ? "Change PIN" : "Set Up PIN"}
+          </Button>
+        </Card>
+      </section>
       
       {/* Management Buttons */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">

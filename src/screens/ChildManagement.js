@@ -68,7 +68,7 @@ export const AddChildScreen = () => {
           <UserPlus className="mr-2" /> Add Child Profile
         </h1>
         
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} data-tutorial="child-form">
           <InputField
             label="Child's Name"
             value={name}
