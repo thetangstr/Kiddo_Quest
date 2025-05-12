@@ -166,4 +166,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Tailwind CSS](https://tailwindcss.com/)
 - [Zustand](https://github.com/pmndrs/zustand)
 - [Lucide Icons](https://lucide.dev/)
-
