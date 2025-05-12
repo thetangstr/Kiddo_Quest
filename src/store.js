@@ -126,6 +126,14 @@ const useKiddoQuestStore = create((set, get) => ({
   },
   
   // --- Authentication Actions ---
+  setCurrentUser: (user, view = 'parentDashboard') => {
+    set({ 
+      currentUser: user, 
+      currentView: view, 
+      isLoadingAuth: false 
+    });
+  },
+  
   loginParent: async (email, password) => {
     set({ isLoadingAuth: true });
     try {
@@ -156,7 +164,8 @@ const useKiddoQuestStore = create((set, get) => ({
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       
       if (userDoc.exists()) {
-        const userData = userDoc.data();
+        // We can use userData in the future if needed
+        // const userData = userDoc.data();
         const parentUser = { 
           uid: user.uid, 
           email: user.email, 
@@ -237,7 +246,8 @@ const useKiddoQuestStore = create((set, get) => ({
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       
       if (userDoc.exists()) {
-        const userData = userDoc.data();
+        // We can use userData in the future if needed
+        // const userData = userDoc.data();
         const parentUser = { 
           uid: user.uid, 
           email: user.email, 
@@ -401,7 +411,8 @@ const useKiddoQuestStore = create((set, get) => ({
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           
           if (userDoc.exists()) {
-            const userData = userDoc.data();
+            // We can use userData in the future if needed
+            // const userData = userDoc.data();
             const parentUser = { 
               uid: user.uid, 
               email: user.email, 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Shield, LogOut, PlusCircle, Edit3, Trash2, Gift, CheckCircle, Crown, Key } from 'lucide-react';
+import { Users, Shield, LogOut, PlusCircle, Edit3, Gift, CheckCircle, Crown, Key } from 'lucide-react';
 import useKiddoQuestStore from '../store';
 import { Button, Card, LoadingSpinner, renderLucideIcon } from '../components/UI';
 import AdminConsole from './AdminConsole';
@@ -10,18 +10,12 @@ const ParentDashboard = () => {
   const { 
     childProfiles, 
     quests,
-    rewards,
     navigateTo, 
     logout, 
     isLoadingData,
     selectChildForDashboard,
     approveQuest,
-    setEditingQuest,
-    deleteQuest,
-    setEditingReward,
-    deleteReward,
     currentUser,
-    currentView,
     hasParentPin
   } = useKiddoQuestStore();
   const [showAdminConsole, setShowAdminConsole] = useState(false);

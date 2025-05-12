@@ -25,6 +25,13 @@
     "eject": "react-scripts eject",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright test --reporter=html && npx playwright show-report",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:custom": "node tests/run-tests.js",
+    "test:e2e:pin": "playwright test pin-protection.spec.js",
+    "test:e2e:quests": "playwright test recurring-quest-features.spec.js",
+    "test:e2e:admin": "playwright test admin-console.spec.js",
     "predeploy": "npm run test:e2e",
     "deploy": "npm run build && firebase deploy"
   },
