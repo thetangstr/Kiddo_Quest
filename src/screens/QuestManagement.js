@@ -128,10 +128,24 @@ export const ManageQuestsScreen = () => {
                     {quest.xp} XP
                   </span>
                   {quest.type === 'recurring' && (
-                    <span className="flex items-center text-xs text-gray-500">
-                      <Repeat size={14} className="mr-1" />
-                      {quest.frequency}
-                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="flex items-center text-xs text-gray-500">
+                        <Repeat size={14} className="mr-1" />
+                        {quest.frequency}
+                      </span>
+                      
+                      {quest.maxPerCadence > 1 && (
+                        <span className="flex items-center text-xs text-blue-500 bg-blue-50 px-1 rounded">
+                          Max {quest.maxPerCadence}x per {quest.frequency === 'daily' ? 'day' : quest.frequency === 'weekly' ? 'week' : 'month'}
+                        </span>
+                      )}
+                      
+                      {quest.penaltyPoints > 0 && (
+                        <span className="flex items-center text-xs text-red-500 bg-red-50 px-1 rounded">
+                          -{quest.penaltyPoints} points if missed
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
                 
@@ -184,7 +198,9 @@ export const QuestFormScreen = () => {
     assignedTo: [],
     iconName: 'CheckCircle',
     image: null,
-    imageFile: null
+    imageFile: null,
+    penaltyPoints: 0,
+    maxPerCadence: 1
   });
   
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
@@ -203,7 +219,9 @@ export const QuestFormScreen = () => {
           assignedTo: questToEdit.assignedTo || [],
           iconName: questToEdit.iconName || 'CheckCircle',
           image: questToEdit.image || null,
-          imageFile: null
+          imageFile: null,
+          penaltyPoints: questToEdit.penaltyPoints || 0,
+          maxPerCadence: questToEdit.maxPerCadence || 1
         });
       }
     }
@@ -331,18 +349,43 @@ export const QuestFormScreen = () => {
           </div>
           
           {formData.type === 'recurring' && (
-            <SelectField
-              label="Frequency"
-              name="frequency"
-              value={formData.frequency || ''}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select Frequency</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </SelectField>
+            <>
+              <SelectField
+                label="Frequency"
+                name="frequency"
+                value={formData.frequency || ''}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Frequency</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </SelectField>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <InputField
+                  label="Penalty Points (if not completed)"
+                  name="penaltyPoints"
+                  type="number"
+                  value={formData.penaltyPoints}
+                  onChange={handleNumberChange}
+                  placeholder="0"
+                  min="0"
+                />
+                
+                <InputField
+                  label={`Max Times Per ${formData.frequency === 'daily' ? 'Day' : formData.frequency === 'weekly' ? 'Week' : 'Month'}`}
+                  name="maxPerCadence"
+                  type="number"
+                  value={formData.maxPerCadence}
+                  onChange={handleNumberChange}
+                  placeholder="1"
+                  min="1"
+                  required
+                />
+              </div>
+            </>
           )}
           
           <div className="mb-4">
