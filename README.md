@@ -1,70 +1,169 @@
-# Getting Started with Create React App
+# Kiddo Quest
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Kiddo Quest is a gamified task management application designed for children and parents, where children can complete quests (tasks) to earn rewards.
 
-## Available Scripts
+![Kiddo Quest](https://via.placeholder.com/800x400?text=Kiddo+Quest)
 
-In the project directory, you can run:
+## 🌟 Features
 
-### `npm start`
+### User Management
+- Parent and child user modes
+- Multiple child profiles can be managed by a parent
+- User authentication via Firebase
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Quest System
+- Parents can create quests (tasks) for children
+- Quests have titles, descriptions, XP rewards, and optional images
+- Quests can be one-time or recurring
+- Children can claim quests when completed
+- Parents can verify quest completion
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Reward System
+- Children earn XP by completing quests
+- Parents can create rewards that children can redeem with earned XP
+- Rewards have titles, descriptions, XP costs, and optional images
+- Celebration effects (confetti) when rewards are claimed
 
-### `npm test`
+### Dashboard & UI
+- Child dashboard showing available quests, XP balance, and available rewards
+- Parent dashboard for managing quests, rewards, and verifying completions
+- XP progress bar for children to track their progress
+- Mobile-responsive design
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 🚀 Technology Stack
 
-### `npm run build`
+- **Frontend**: React, Tailwind CSS, Zustand (state management)
+- **Backend**: Firebase (Authentication, Firestore, Storage)
+- **Deployment**: Firebase App Hosting
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 📋 Prerequisites
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- Node.js (v14 or later)
+- npm or yarn
+- Firebase account
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## 🔧 Installation & Setup
 
-### `npm run eject`
+1. **Clone the repository**
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+git clone https://github.com/yourusername/kiddo-quest.git
+cd kiddo-quest
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+2. **Install dependencies**
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```bash
+npm install
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+3. **Configure Firebase**
 
-## Learn More
+Create a Firebase project at [Firebase Console](https://console.firebase.google.com/) and enable:
+- Authentication (Email/Password)
+- Firestore Database
+- Storage
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+Update the Firebase configuration in `src/firebase.js` with your project details:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```javascript
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+```
 
-### Code Splitting
+4. **Start the development server**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+```bash
+npm start
+```
 
-### Analyzing the Bundle Size
+## 🚀 Deployment
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### Deploy to Firebase App Hosting
 
-### Making a Progressive Web App
+1. **Install Firebase CLI**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+```bash
+npm install -g firebase-tools
+```
 
-### Advanced Configuration
+2. **Login to Firebase**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+```bash
+firebase login
+```
 
-### Deployment
+3. **Initialize Firebase in your project (if not already done)**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+```bash
+firebase init
+```
 
-### `npm run build` fails to minify
+Select Hosting, Firestore, and Storage options when prompted.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+4. **Build the project**
+
+```bash
+npm run build
+```
+
+5. **Deploy to Firebase**
+
+```bash
+firebase deploy
+```
+
+## 📁 Project Structure
+
+```
+src/
+├── components/         # Reusable UI components
+├── screens/            # Application screens/pages
+├── firebase.js         # Firebase configuration
+├── store.js            # Zustand state management
+├── App.js              # Main application component
+└── index.js            # Application entry point
+```
+
+## 🔒 Security Rules
+
+The application uses Firebase security rules to protect data:
+
+- **Firestore Rules**: Ensures users can only access their own data
+- **Storage Rules**: Controls access to uploaded images
+
+## 📱 Using the Application
+
+### Parent Mode
+1. Register or log in as a parent
+2. Add child profiles
+3. Create quests and rewards
+4. Verify completed quests
+
+### Child Mode
+1. Parent selects a child profile
+2. Child views and claims quests
+3. Child earns XP and redeems rewards
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgements
+
+- [React](https://reactjs.org/)
+- [Firebase](https://firebase.google.com/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [Zustand](https://github.com/pmndrs/zustand)
+- [Lucide Icons](https://lucide.dev/)
+

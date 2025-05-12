@@ -1,0 +1,10 @@
+{
+  "appHosting": {
+    "site": "kiddo-quest-de7b0",
+    "source": {
+      "type": "react",
+      "directory": "."
+    },
+    "region": "us-central1"
+  }
+}
