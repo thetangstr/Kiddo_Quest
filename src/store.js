@@ -22,11 +22,19 @@ import {
   setDoc 
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage, googleProvider } from './firebase';
+import { auth, db, storage } from './firebase';
 import { SUBSCRIPTION_TIERS, FEATURES, isFeatureAvailable } from './utils/subscriptionManager';
 
-// Zustand Store for Global State Management
+/**
+ * Kiddo Quest Store
+ * Central state management for the entire application
+ * Organized into logical sections for better maintainability
+ */
 const useKiddoQuestStore = create((set, get) => ({
+  // =========================================
+  // STATE VARIABLES
+  // =========================================
+  
   // --- Authentication State ---
   currentUser: null, 
   isLoadingAuth: true,
@@ -51,7 +59,14 @@ const useKiddoQuestStore = create((set, get) => ({
   isIconPickerOpen: false,
   iconPickerCallback: null,
 
-  // --- PIN Management ---
+  // =========================================
+  // PIN MANAGEMENT
+  // =========================================
+  
+  /**
+   * Check if the current user has a PIN set
+   * @returns {Promise<boolean>} True if PIN is set, false otherwise
+   */
   hasParentPin: async () => {
     try {
       const user = auth.currentUser;
@@ -68,6 +83,7 @@ const useKiddoQuestStore = create((set, get) => ({
     }
   },
   
+  // --- PIN Management ---
   setParentPin: async (pin) => {
     try {
       const user = auth.currentUser;
@@ -124,11 +140,23 @@ const useKiddoQuestStore = create((set, get) => ({
     }
   },
   
+  /**
+   * Set whether PIN verification is required
+   * @param {boolean} require - Whether PIN is required
+   */
   setRequirePin: (require) => {
     set({ requirePin: require });
   },
   
-  // --- Authentication Actions ---
+  // =========================================
+  // AUTHENTICATION ACTIONS
+  // =========================================
+  
+  /**
+   * Set the current user and view
+   * @param {Object} user - User object
+   * @param {string} view - View to navigate to
+   */
   setCurrentUser: (user, view = 'parentDashboard') => {
     set({ 
       currentUser: user, 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Camera, Smile, ChevronRight, Check, ArrowLeft, Shield, Star } from 'lucide-react';
+import { X, Camera, Smile, Check, ArrowLeft, Shield, Star } from 'lucide-react';
 import { Button, InputField, Card } from './UI';
 import useKiddoQuestStore from '../store';
 import { auth } from '../firebase';
@@ -27,10 +27,10 @@ export const GuidedTutorial = () => {
   
   // Store access
   const { 
-    childProfiles, 
+
     addChildProfile, 
     setParentPin,
-    hasParentPin,
+
     navigateTo 
   } = useKiddoQuestStore();
 

@@ -18,6 +18,7 @@ import { SubscriptionManagementScreen } from './screens/SubscriptionManagement';
 import './index.css';
 import FeedbackButton from './components/FeedbackButton';
 import FeedbackModal from './components/FeedbackModal';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   const { 
@@ -25,7 +26,7 @@ function App() {
     isLoadingAuth, 
     checkAuthStatus,
     currentUser,
-    requirePin,
+
     setRequirePin,
     hasParentPin
   } = useKiddoQuestStore();
@@ -185,18 +186,20 @@ function App() {
   };
   
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      {showTutorial && <GuidedTutorial onClose={() => setShowTutorial(false)} />}
-      {renderView()}
-      {showPinVerification && (
-        <PinVerification 
-          onSuccess={handlePinSuccess} 
-          onCancel={handlePinCancel} 
-        />
-      )}
-      <FeedbackButton onClick={() => setFeedbackOpen(true)} />
-      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} user={currentUser} />
-    </div>
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-50 font-sans">
+        {showTutorial && <GuidedTutorial onClose={() => setShowTutorial(false)} />}
+        {renderView()}
+        {showPinVerification && (
+          <PinVerification 
+            onSuccess={handlePinSuccess} 
+            onCancel={handlePinCancel} 
+          />
+        )}
+        <FeedbackButton onClick={() => setFeedbackOpen(true)} />
+        <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} user={currentUser} />
+      </div>
+    </ErrorBoundary>
   );
 }
 
