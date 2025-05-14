@@ -58,7 +58,7 @@ export default function AdminConsole({ user, onBack }) {
     {
       id: '2',
       email: 'fay.f.deng@gmail.com',
-      status: 'inactive',
+      status: 'active',  // Updated to active
       isAdmin: false,
       userType: 'app user',
       lastLogin: null,
@@ -141,23 +141,48 @@ export default function AdminConsole({ user, onBack }) {
   const toggleUserStatus = async (userId, currentStatus) => {
     try {
       const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+      const userToUpdate = users.find(user => user.id === userId);
+      
+      if (!userToUpdate) {
+        throw new Error(`User with ID ${userId} not found`);
+      }
       
       // Check if we're using test data or real data
-      const isTestData = users.some(user => user.id === userId && !user.id.includes('/'));
+      const isTestData = userId.startsWith('1') || userId.startsWith('2') || userId.startsWith('3') || 
+                       userId.startsWith('4') || userId.startsWith('5') || userId.startsWith('6');
       
       if (!isTestData) {
         // Update user status in Firestore for real users
         await updateDoc(doc(db, 'users', userId), {
           status: newStatus,
+          authEnabled: newStatus === 'active', // This is key - ensure authEnabled reflects status
           updatedAt: serverTimestamp()
         });
+        console.log(`Updated user ${userToUpdate.email} status to ${newStatus} in Firestore`);
       } else {
-        console.log(`Test mode: Would update user ${userId} status to ${newStatus}`);
+        // For test data users, create an actual Firestore entry
+        console.log(`Creating real Firestore entry for test user ${userToUpdate.email}`);
+        
+        // Generate a unique ID that includes some user identifiable info
+        const generatedId = `manual_${Date.now()}_${userToUpdate.email.replace(/[^a-zA-Z0-9]/g, '')}`;
+        
+        await setDoc(doc(db, 'users', generatedId), {
+          email: userToUpdate.email,
+          status: newStatus,
+          authEnabled: newStatus === 'active',
+          isAdmin: userToUpdate.isAdmin || false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        
+        // Update the userId in our local state to reference the new Firestore document
+        userId = generatedId;
       }
       
       // Update local state
       setUsers(users.map(user => 
-        user.id === userId ? { ...user, status: newStatus } : user
+        user.id === userId || user.email === userToUpdate.email ? 
+          { ...user, id: userId, status: newStatus } : user
       ));
       
       // Show success message
