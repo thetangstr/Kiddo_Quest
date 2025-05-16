@@ -50,14 +50,65 @@ const ChildDashboard = ({ onViewChange }) => {
     const isAssigned = quest.assignedTo?.includes(selectedChildIdForDashboard);
     if (!isAssigned) return false;
     
-    // Check if this child has already claimed this quest
-    const hasClaimedQuest = questCompletions?.some(completion => 
-      completion.questId === quest.id && 
-      completion.childId === selectedChildIdForDashboard
-    );
+    // Only consider active quests
+    if (quest.status !== 'new') return false;
     
-    // Only show quests that are new and not yet claimed by this child
-    return quest.status === 'new' && !hasClaimedQuest;
+    // For one-time quests, check if it's been claimed at all
+    if (quest.type !== 'recurring') {
+      return !questCompletions?.some(completion => 
+        completion.questId === quest.id && 
+        completion.childId === selectedChildIdForDashboard
+      );
+    }
+    
+    // For recurring quests, check how many times it's been completed in the current cadence
+    if (quest.type === 'recurring') {
+      // Get today's date at midnight for daily quests
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Get the start of the week for weekly quests (Sunday)
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      
+      // Get the start of the month for monthly quests
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      
+      // Determine the relevant date based on frequency
+      let relevantDate;
+      switch(quest.frequency) {
+        case 'daily':
+          relevantDate = today;
+          break;
+        case 'weekly':
+          relevantDate = startOfWeek;
+          break;
+        case 'monthly':
+          relevantDate = startOfMonth;
+          break;
+        default:
+          relevantDate = today; // Default to daily if no frequency specified
+      }
+      
+      // Count completions in the current period
+      const completionsInPeriod = questCompletions?.filter(completion => {
+        // Match quest and child
+        if (completion.questId !== quest.id || completion.childId !== selectedChildIdForDashboard) {
+          return false;
+        }
+        
+        // Check if the completion is within the current period
+        const completionDate = new Date(completion.claimedAt);
+        
+        return completionDate >= relevantDate;
+      }) || [];
+      
+      // Compare against maxPerCadence (default to 1 if not specified)
+      const maxCompletions = quest.maxPerCadence || 1;
+      return completionsInPeriod.length < maxCompletions;
+    }
+    
+    return true; // Default case
   });
   
   // Get pending quests from the completions collection
