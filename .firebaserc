@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "kiddo-quest-de7b0"
-  }
+  },
+  "targets": {
+    "kiddo-quest-de7b0": {
+      "hosting": {
+        "beta": [
+          "kiddo-quest-beta"
+        ],
+        "production": [
+          "kiddo-quest-de7b0"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

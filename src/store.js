@@ -314,6 +314,9 @@ const useKiddoQuestStore = create((set, get) => ({
       
       console.log('Google login attempt:', userEmail);
       
+      // Check if we're in the beta environment
+      const isBetaEnvironment = window.location.hostname.includes('beta') || window.location.hostname.includes('localhost');
+      
       // Special case for admin - always allow and set admin privileges
       if (userEmail === 'thetangstr@gmail.com') {
         console.log('Admin login detected');
@@ -361,13 +364,10 @@ const useKiddoQuestStore = create((set, get) => ({
         return adminUser;
       }
       
-      // For non-admin users, check if they exist in Firestore
+      // In beta environment, check if the user is authorized via the Admin console
+      // For non-admin users, check if they exist in Firestore and have 'active' status 
       const userQuery = query(collection(db, 'users'), where('email', '==', userEmail));
       const userSnapshot = await getDocs(userQuery);
-      
-      // Check if user has a valid invitation
-      const invitationQuery = query(collection(db, 'invitations'), where('email', '==', userEmail));
-      const invitationSnapshot = await getDocs(invitationQuery);
       
       // Normalize the email for comparison
       const normalizedEmail = userEmail.toLowerCase();
@@ -397,14 +397,12 @@ const useKiddoQuestStore = create((set, get) => ({
           return localPart.replace(/\./g, '') + '@' + domain;
         });
       
+      // For special users, skip permission checks
       if (specialEmails.includes(normalizedEmail) || strippedSpecialEmails.includes(strippedEmail)) {
         console.log('Special case user detected, setting up session');
         
         // For special users, we bypass document creation and just set up the session
         // This avoids the permissions issue with Firestore rules
-        
-        // Define the user in the app state only without trying to modify Firestore
-        // The document creation can happen later when we have the proper permissions
         
         // IMPORTANT: For special users, we DO NOT make ANY Firestore calls
         // Skip ALL Firestore operations to avoid permission issues
@@ -427,111 +425,64 @@ const useKiddoQuestStore = create((set, get) => ({
           isLoadingAuth: false 
         });
         
-        // Log the successful login
         console.log(`Special user ${userEmail} logged in successfully without Firestore operations`);
-        
-        // Skip ALL other Firestore operations and return the user
         return specialUser;
       }
       
-      // Allow access if:
-      // 1. User exists in the users collection
-      // 2. User has a valid invitation
-      if (!userSnapshot.empty || !invitationSnapshot.empty) {
-        // If user doesn't exist but has an invitation, create the user
-        if (userSnapshot.empty && !invitationSnapshot.empty) {
-          // Create new user in Firestore
-          await setDoc(doc(db, 'users', result.user.uid), {
-            email: userEmail,
+      // For all other users, check if they exist in the users collection and have 'active' status 
+      if (!userSnapshot.empty) {
+        const userDoc = userSnapshot.docs[0];
+        const userData = userDoc.data();
+        
+        // Only allow users with active status to log in
+        // This makes the Admin Console the source of truth for user access
+        if (userData.status === 'active' && userData.authEnabled !== false) {
+          console.log(`User ${userEmail} found in Firestore and is active`);
+          
+          // Update user data with login information
+          await updateDoc(doc(db, 'users', result.user.uid), {
             displayName: result.user.displayName || '',
             photoURL: result.user.photoURL || '',
-            createdAt: serverTimestamp(),
-            lastLogin: serverTimestamp(),
-            loginCount: 1,
-            status: 'active',
-            isAdmin: false,
-            authEnabled: true
-          });
-          
-          // Update invitation status
-          const invitationDoc = invitationSnapshot.docs[0];
-          await updateDoc(doc(db, 'invitations', invitationDoc.id), {
-            status: 'accepted',
-            acceptedAt: serverTimestamp()
-          });
-        } else if (!userSnapshot.empty) {
-          // Update existing user's login information
-          const userDoc = userSnapshot.docs[0];
-          const userData = userDoc.data();
-          
-          // Link the Firebase Auth user with the Firestore user if they were created separately
-          // This happens if the user was created directly in Firestore when Email/Password auth was disabled
-          if (userData.authEnabled === false && userDoc.id.startsWith('manual_')) {
-            console.log('Linking manually created Firestore user with Firebase Auth account');
-            
-            // Create a new user document with the Firebase Auth UID
-            await setDoc(doc(db, 'users', result.user.uid), {
-              ...userData,
-              email: userEmail,
-              displayName: result.user.displayName || '',
-              photoURL: result.user.photoURL || '',
-              lastLogin: serverTimestamp(),
-              loginCount: (userData.loginCount || 0) + 1,
-              authEnabled: true,
-              linkedFromManualId: userDoc.id,
-              passwordHash: null // Remove any stored password hash
-            });
-            
-            // Mark the old document as migrated but don't delete it yet
-            await updateDoc(doc(db, 'users', userDoc.id), {
-              status: 'migrated',
-              migratedToId: result.user.uid,
-              migratedAt: serverTimestamp()
-            });
-          } else {
-            // Normal update for existing user
-            await updateDoc(doc(db, 'users', userDoc.id), {
-              lastLogin: serverTimestamp(),
-              loginCount: (userData.loginCount || 0) + 1
-            });
-          }
-        }
-        
-        // Set user in state
-        const parentUser = { 
-          uid: result.user.uid, 
-          email: userEmail, 
-          role: 'parent',
-          isAdmin: userEmail === 'thetangstr@gmail.com'
-        };
-        
-        set({ 
-          currentUser: parentUser, 
-          currentView: parentUser.isAdmin ? 'adminDashboard' : 'parentDashboard', 
-          isLoadingAuth: false 
-        });
-        
-        // Record login activity
-        await addDoc(collection(db, 'userActivity'), {
-          userId: result.user.uid,
-          email: userEmail,
-          type: 'login',
-          timestamp: serverTimestamp()
-        });
-        
-        // Update user's last login time and count if needed
-        if (!userSnapshot.empty) {
-          const userDoc = userSnapshot.docs[0];
-          const userData = userDoc.data();
-          await updateDoc(doc(db, 'users', result.user.uid), {
             lastLogin: serverTimestamp(),
             lastLoginAt: new Date().toISOString(),
             loginCount7Days: (userData.loginCount7Days || 0) + 1
           });
+          
+          // Set user in state with correct admin status
+          const parentUser = { 
+            uid: result.user.uid, 
+            email: userEmail, 
+            role: 'parent',
+            isAdmin: userData.isAdmin === true
+          };
+          
+          // Set the view based on admin status
+          const targetView = parentUser.isAdmin ? 'adminDashboard' : 'parentDashboard';
+          
+          set({ 
+            currentUser: parentUser, 
+            currentView: targetView, 
+            isLoadingAuth: false 
+          });
+          
+          // Record login activity
+          await addDoc(collection(db, 'userActivity'), {
+            userId: result.user.uid,
+            email: userEmail,
+            type: 'login',
+            timestamp: serverTimestamp()
+          });
+          
+          // Fetch user data
+          await get().fetchParentData(parentUser.uid);
+          return parentUser;
+        } else {
+          // User exists but is not active or not enabled
+          console.error(`User ${userEmail} found but is inactive or not authorized`);
+          await signOut(auth);
+          set({ isLoadingAuth: false });
+          throw new Error('Your account is inactive or not authorized. Please contact the administrator.');
         }
-        
-        await get().fetchParentData(parentUser.uid);
-        return parentUser;
       } else if (userEmail === 'thetangstr@gmail.com') {
         // Special case for admin user's first login
         await setDoc(doc(db, 'users', result.user.uid), {
@@ -541,7 +492,8 @@ const useKiddoQuestStore = create((set, get) => ({
           lastLoginAt: new Date().toISOString(),
           status: 'active',
           isAdmin: true,
-          loginCount7Days: 1
+          loginCount7Days: 1,
+          authEnabled: true
         });
         
         const adminUser = { 
@@ -557,14 +509,15 @@ const useKiddoQuestStore = create((set, get) => ({
           isLoadingAuth: false 
         });
         
-        await get().fetchParentData(result.user.uid);
-        await get().createDefaultQuestsAndRewards(result.user.uid);
+        await get().fetchParentData(adminUser.uid);
+        await get().createDefaultQuestsAndRewards(adminUser.uid);
         return adminUser;
       } else {
-        // This should not happen due to the earlier checks, but just in case
+        // User not found in Firestore - access denied
+        console.error(`User ${userEmail} not found in users list - access denied`);
         await signOut(auth);
         set({ isLoadingAuth: false });
-        throw new Error('An unexpected error occurred. Please try again or contact support.');
+        throw new Error('Access denied. Your account is not authorized to use this application. Please contact the administrator.');
       }
     } catch (error) {
       console.error('Google login error:', error);

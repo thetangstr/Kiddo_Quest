@@ -109,19 +109,49 @@ export default function AdminConsole({ user, onBack }) {
       const usersQuery = query(collection(db, 'users'));
       const usersSnapshot = await getDocs(usersQuery);
       
+      // Create a map of email to last login times from activity logs
+      const userActivityMap = {};
+      try {
+        const activityQuery = query(collection(db, 'userActivity'));
+        const activitySnapshot = await getDocs(activityQuery);
+        
+        activitySnapshot.docs.forEach(activityDoc => {
+          const activityData = activityDoc.data();
+          if (activityData.email && activityData.lastLogin) {
+            userActivityMap[activityData.email.toLowerCase()] = {
+              lastLogin: activityData.lastLogin,
+              loginCount: activityData.loginCount || 0
+            };
+          }
+        });
+      } catch (activityError) {
+        console.error('Error fetching user activity:', activityError);
+      }
+      
       // If we have real users, map them with activity data
       if (usersSnapshot.docs.length > 0) {
         return usersSnapshot.docs.map(doc => {
           const userData = doc.data();
+          const email = userData.email?.toLowerCase() || 'Unknown';
+          const activityData = userActivityMap[email] || {};
+          
+          // Determine actual user status based on both Firestore status and activity
+          let userStatus = userData.status || 'inactive';
+          if (userStatus === 'active' && !userData.authEnabled) {
+            userStatus = 'disabled'; // User explicitly disabled by admin
+          }
+          
           return {
             id: doc.id,
-            email: userData.email || 'Unknown',
-            status: userData.status || (userData.lastLogin ? 'active' : 'inactive'),
-            isAdmin: userData.isAdmin || userData.email === 'thetangstr@gmail.com',
-            userType: userData.isAdmin || userData.email === 'thetangstr@gmail.com' ? 'admin' : 'app user',
-            lastLogin: userData.lastLogin || null,
-            loginCount7Days: userData.loginCount7Days || 0,
-            createdAt: userData.createdAt || null
+            email: email,
+            status: userStatus,
+            isAdmin: userData.isAdmin || email === 'thetangstr@gmail.com',
+            userType: userData.isAdmin || email === 'thetangstr@gmail.com' ? 'admin' : 'app user',
+            lastLogin: activityData.lastLogin || userData.lastLogin || null,
+            loginCount7Days: activityData.loginCount || userData.loginCount7Days || 0,
+            createdAt: userData.createdAt || null,
+            authEnabled: userData.authEnabled !== false, // Default to true if not specified
+            emailVerified: userData.emailVerified || false
           };
         });
       } else {
@@ -148,17 +178,26 @@ export default function AdminConsole({ user, onBack }) {
       }
       
       // Check if we're using test data or real data
-      const isTestData = userId.startsWith('1') || userId.startsWith('2') || userId.startsWith('3') || 
-                       userId.startsWith('4') || userId.startsWith('5') || userId.startsWith('6');
+      const isTestData = userId.startsWith('1') || userId.startsWith('2') || userId.startsWith('3') || !userId.includes('-');
       
       if (!isTestData) {
-        // Update user status in Firestore for real users
+        // Update the user document in Firestore
         await updateDoc(doc(db, 'users', userId), {
           status: newStatus,
-          authEnabled: newStatus === 'active', // This is key - ensure authEnabled reflects status
+          // When setting to inactive, explicitly disable authentication
+          authEnabled: newStatus === 'active',
           updatedAt: serverTimestamp()
         });
-        console.log(`Updated user ${userToUpdate.email} status to ${newStatus} in Firestore`);
+        
+        // Log the status change
+        await addDoc(collection(db, 'userStatusLogs'), {
+          userId: userId,
+          email: userToUpdate.email,
+          previousStatus: currentStatus,
+          newStatus: newStatus,
+          changedBy: 'admin',
+          changedAt: serverTimestamp()
+        });
       } else {
         // For test data users, create an actual Firestore entry
         console.log(`Creating real Firestore entry for test user ${userToUpdate.email}`);
