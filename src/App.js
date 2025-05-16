@@ -3,6 +3,7 @@ import useKiddoQuestStore from './store';
 import { LoadingSpinner } from './components/UI';
 import { GuidedTutorial, shouldShowGuidedTutorial } from './components/GuidedTutorial';
 import PinVerification from './components/PinVerification';
+import ChangelogBanner from './components/ChangelogBanner';
 
 // Import screens
 import { LoginScreen, RegistrationScreen } from './screens/Auth';
@@ -188,6 +189,7 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gray-50 font-sans">
+        <ChangelogBanner />
         {showTutorial && <GuidedTutorial onClose={() => setShowTutorial(false)} />}
         {renderView()}
         {showPinVerification && (
