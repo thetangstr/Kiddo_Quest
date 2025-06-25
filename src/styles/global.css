@@ -1,0 +1,350 @@
+/* Global styles for Soft Neumorphic Learning App Design System */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Colors */
+  --background-primary: #FDF8F3;
+  --text-primary: #1D1C2E;
+  --text-secondary: #8A8A9D;
+  --text-on-dark: #FFFFFF;
+  --text-accent: #59569D;
+  
+  --card-dark-purple: #2C2B4B;
+  --card-light-purple: #D7D6F4;
+  --card-light-orange: #FEE7D4;
+  --card-light-blue: #D6E6FE;
+  --card-white: #FFFFFF;
+  
+  --accent-primary: #59569D;
+  --accent-secondary: #FFAF74;
+  --accent-neutral: #E0E0E5;
+  
+  /* Typography */
+  --font-family: 'Inter', system-ui, sans-serif;
+  --base-size: 16px;
+  
+  /* Border Radius */
+  --radius-small: 8px;
+  --radius-medium: 16px;
+  --radius-large: 24px;
+  --radius-extra-large: 32px;
+  --radius-pill: 9999px;
+  
+  /* Shadows */
+  --shadow-soft: 0px 10px 30px rgba(0, 0, 0, 0.07);
+  --shadow-inset: inset 0px 4px 10px rgba(0, 0, 0, 0.05);
+  
+  /* Layout */
+  --container-padding: 24px;
+  --vertical-gap: 20px;
+  --horizontal-gap: 16px;
+}
+
+/* Base styles */
+html, body {
+  font-family: var(--font-family);
+  font-size: var(--base-size);
+  background-color: var(--background-primary);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+/* Container */
+.container {
+  padding: var(--container-padding);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Typography */
+h1, .h1 {
+  font-weight: 600;
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+h2, .h2 {
+  font-weight: 700;
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+h3, .h3 {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+p {
+  font-weight: 500;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.caption {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.display {
+  font-weight: 700;
+  font-size: 2.5rem;
+}
+
+/* Buttons */
+button, .button {
+  font-family: var(--font-family);
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Primary Button */
+.btn-primary {
+  background-color: var(--accent-primary);
+  color: var(--text-on-dark);
+  border-radius: var(--radius-pill);
+  padding: 12px 24px;
+  box-shadow: var(--shadow-soft);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0px 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-inset);
+}
+
+/* Secondary Button */
+.btn-secondary {
+  background-color: var(--card-white);
+  color: var(--accent-primary);
+  border-radius: var(--radius-pill);
+  padding: 12px 24px;
+  box-shadow: var(--shadow-soft);
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0px 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-inset);
+}
+
+/* Icon Button */
+.btn-icon {
+  background-color: var(--card-white);
+  color: var(--accent-primary);
+  border-radius: var(--radius-circle);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-soft);
+}
+
+.btn-icon:hover {
+  transform: translateY(-2px);
+  box-shadow: 0px 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+.btn-icon:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-inset);
+}
+
+/* Cards */
+.card {
+  border-radius: var(--radius-large);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  margin-bottom: var(--vertical-gap);
+}
+
+/* Promo Card */
+.card-promo {
+  background-color: var(--card-dark-purple);
+  color: var(--text-on-dark);
+  padding: 24px;
+  border-radius: var(--radius-large);
+}
+
+/* Stats Grid Card */
+.card-stats {
+  padding: 16px;
+  border-radius: var(--radius-medium);
+}
+
+.card-stats.purple {
+  background-color: var(--card-light-purple);
+}
+
+.card-stats.orange {
+  background-color: var(--card-light-orange);
+}
+
+.card-stats.blue {
+  background-color: var(--card-light-blue);
+}
+
+/* Content List Card */
+.card-list {
+  background-color: var(--card-light-orange);
+  padding: 16px;
+  border-radius: var(--radius-large);
+}
+
+/* Chart Card */
+.card-chart {
+  background-color: var(--card-white);
+  padding: 20px;
+  border-radius: var(--radius-large);
+}
+
+/* List Item */
+.list-item {
+  background-color: var(--card-white);
+  border-radius: var(--radius-medium);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--vertical-gap);
+}
+
+/* Avatar */
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: var(--shadow-soft);
+}
+
+/* Tab Bar */
+.tab-bar {
+  display: flex;
+  background-color: var(--background-primary);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  box-shadow: var(--shadow-inset);
+  margin-bottom: var(--vertical-gap);
+}
+
+.tab {
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.tab.active {
+  background-color: var(--text-primary);
+  color: var(--text-on-dark);
+}
+
+.tab.inactive {
+  background-color: transparent;
+  color: var(--text-secondary);
+}
+
+/* Glassmorphism */
+.glass {
+  backdrop-filter: blur(20px);
+  background-color: rgba(44, 43, 75, 0.5);
+  border-radius: var(--radius-large);
+}
+
+/* Utilities */
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-sm {
+  gap: 8px;
+}
+
+.gap-md {
+  gap: 16px;
+}
+
+.gap-lg {
+  gap: 24px;
+}
+
+.mt-sm {
+  margin-top: 8px;
+}
+
+.mt-md {
+  margin-top: 16px;
+}
+
+.mt-lg {
+  margin-top: 24px;
+}
+
+.mb-sm {
+  margin-bottom: 8px;
+}
+
+.mb-md {
+  margin-bottom: 16px;
+}
+
+.mb-lg {
+  margin-bottom: 24px;
+}
+
+/* Icons */
+.icon {
+  stroke-width: 2px;
+  width: 24px;
+  height: 24px;
+}
+
+.icon-sm {
+  width: 16px;
+  height: 16px;
+}
+
+.icon-lg {
+  width: 32px;
+  height: 32px;
+}
+
+.icon-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--accent-primary);
+  color: var(--text-on-dark);
+}

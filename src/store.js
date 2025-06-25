@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import bcrypt from 'bcryptjs';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -22,6 +23,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage, googleProvider } from './firebase';
 import { SUBSCRIPTION_TIERS, FEATURES, isFeatureAvailable } from './utils/subscriptionManager';
+import { verifyInvitation, acceptInvitation } from './utils/invitationManager';
 
 // Zustand Store for Global State Management
 const useKiddoQuestStore = create((set, get) => ({
@@ -72,10 +74,9 @@ const useKiddoQuestStore = create((set, get) => ({
         return { success: false, error: 'Not authenticated' };
       }
       
-      // Hash the PIN before storing it
-      // In a real app, use a proper hashing algorithm with salt
-      // This is a simple hash for demonstration purposes
-      const hashedPin = btoa(pin); // Base64 encoding (not secure for production)
+      // Hash the PIN with bcrypt for security
+      const saltRounds = 12;
+      const hashedPin = await bcrypt.hash(pin, saltRounds);
       
       await updateDoc(doc(db, 'users', user.uid), {
         parentPin: hashedPin,
@@ -106,10 +107,10 @@ const useKiddoQuestStore = create((set, get) => ({
         return { success: false, error: 'No PIN set' };
       }
       
-      // Hash the input PIN and compare with stored hash
-      const hashedPin = btoa(pin);
+      // Compare the input PIN with the stored hash using bcrypt
+      const isValidPin = await bcrypt.compare(pin, userData.parentPin);
       
-      if (hashedPin === userData.parentPin) {
+      if (isValidPin) {
         set({ requirePin: false });
         return { success: true };
       } else {
@@ -128,9 +129,10 @@ const useKiddoQuestStore = create((set, get) => ({
   // --- Authentication Actions ---
   loginParent: async (email, password) => {
     set({ isLoadingAuth: true });
+    console.log('Starting login process for email:', email);
     try {
-      // Always allow admin email
-      if (email !== 'thetangstr@gmail.com') {
+      // Check allowlist access (disabled during role-based transition)
+      if (true) {
         // Check if user already exists in the active users collection
         const userQuery = query(collection(db, 'users'), where('email', '==', email.toLowerCase()));
         const userSnapshot = await getDocs(userQuery);
@@ -160,9 +162,8 @@ const useKiddoQuestStore = create((set, get) => ({
         const parentUser = { 
           uid: user.uid, 
           email: user.email, 
-          role: 'parent',
-          // Explicitly track if user is admin
-          isAdmin: user.email === 'thetangstr@gmail.com'
+          role: userData.role || 'parent',
+          isAdmin: userData.role === 'admin'
         };
         
         set({ 
@@ -175,18 +176,19 @@ const useKiddoQuestStore = create((set, get) => ({
         return parentUser;
       } else {
         // Create user document if it doesn't exist (first email login)
+        const isAdminUser = false; // New users are not admin by default
         await setDoc(doc(db, 'users', user.uid), {
           email: user.email,
           createdAt: serverTimestamp(),
-          // Store admin status in Firestore
-          isAdmin: user.email === 'thetangstr@gmail.com'
+          status: 'active', // Ensure user is marked as active
+          isAdmin: isAdminUser
         });
         
         const parentUser = { 
           uid: user.uid, 
           email: user.email, 
           role: 'parent',
-          isAdmin: user.email === 'thetangstr@gmail.com'
+          isAdmin: isAdminUser
         };
         
         set({ 
@@ -208,91 +210,43 @@ const useKiddoQuestStore = create((set, get) => ({
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
-      // Check if user already exists in the active users collection
-      const userQuery = query(collection(db, 'users'), where('email', '==', user.email.toLowerCase()));
-      const userSnapshot = await getDocs(userQuery);
+      // Check if admin user (thetangstr@gmail.com)
+      const isAdminEmail = user.email.toLowerCase() === 'thetangstr@gmail.com';
       
-      // If user exists, check if they're active (unless they're admin)
-      if (!userSnapshot.empty && user.email !== 'thetangstr@gmail.com') {
-        const userData = userSnapshot.docs[0].data();
-        if (userData.status === 'inactive') {
-          await signOut(auth);
-          set({ isLoadingAuth: false });
-          throw new Error('Your account has been deactivated. Please contact the administrator.');
-        }
-      }
+      console.log('User logged in:', user.email, 'Is admin:', isAdminEmail);
       
-      // If user doesn't exist and isn't the admin, add them to the users collection
-      if (userSnapshot.empty && user.email !== 'thetangstr@gmail.com') {
-        // Create new user in the users collection
-        await setDoc(doc(db, 'users', user.uid), {
-          email: user.email.toLowerCase(),
-          createdAt: serverTimestamp(),
-          status: 'active', // New users are active by default
-          isAdmin: user.email === 'thetangstr@gmail.com'
-        });
-      }
+      // Create or update user document (simplified approach)
+      const parentUser = { 
+        uid: user.uid, 
+        email: user.email, 
+        role: isAdminEmail ? 'admin' : 'parent',
+        isAdmin: isAdminEmail
+      };
       
-      // Get user profile from Firestore to check if passcode exists
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      // Always create/update the user document to ensure it exists
+      await setDoc(doc(db, 'users', user.uid), {
+        email: user.email.toLowerCase(),
+        role: parentUser.role,
+        status: 'active',
+        isAdmin: parentUser.isAdmin,
+        lastLogin: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true }); // Use merge to update existing or create new
       
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const parentUser = { 
-          uid: user.uid, 
-          email: user.email, 
-          role: 'parent',
-          // Explicitly track if user is admin
-          isAdmin: user.email === 'thetangstr@gmail.com'
-        };
-        
-        set({ 
-          currentUser: parentUser, 
-          currentView: 'parentDashboard', 
-          isLoadingAuth: false 
-        });
-        
-        // Record login activity
-        await addDoc(collection(db, 'userActivity'), {
-          userId: user.uid,
-          email: user.email,
-          type: 'login',
-          timestamp: serverTimestamp()
-        });
-        
-        // Update user's last login time
-        await updateDoc(doc(db, 'users', user.uid), {
-          lastLogin: serverTimestamp(),
-          lastLoginAt: new Date().toISOString()
-        });
-        
-        await get().fetchParentData(parentUser.uid);
-        return parentUser;
-      } else {
-        // Create user document if it doesn't exist (first Google login)
-        await setDoc(doc(db, 'users', user.uid), {
-          email: user.email,
-          createdAt: serverTimestamp(),
-          // Store admin status in Firestore
-          isAdmin: user.email === 'thetangstr@gmail.com'
-        });
-        
-        const parentUser = { 
-          uid: user.uid, 
-          email: user.email, 
-          role: 'parent',
-          isAdmin: user.email === 'thetangstr@gmail.com'
-        };
-        
-        set({ 
-          currentUser: parentUser, 
-          currentView: 'parentDashboard', 
-          isLoadingAuth: false 
-        });
-        return parentUser;
-      }
+      set({ 
+        currentUser: parentUser, 
+        currentView: parentUser.isAdmin ? 'adminDashboard' : 'parentDashboard', 
+        isLoadingAuth: false 
+      });
+      
+      console.log('User authenticated successfully:', parentUser);
+      
+      // Fetch user data after successful authentication
+      await get().fetchParentData(parentUser.uid);
+      return parentUser;
     } catch (error) {
-      set({ isLoadingAuth: false });
+      console.error('Google login error:', error);
+      set({ isLoadingAuth: false, error: error.message });
       throw error;
     }
   },
@@ -300,50 +254,41 @@ const useKiddoQuestStore = create((set, get) => ({
   registerParent: async (email, password) => {
     set({ isLoadingAuth: true });
     try {
-      // Always allow admin email
-      if (email !== 'thetangstr@gmail.com') {
-        // Check if user already exists in the active users collection or has an invitation
-        const userQuery = query(collection(db, 'users'), where('email', '==', email.toLowerCase()));
-        const userSnapshot = await getDocs(userQuery);
-        
-        const invitationQuery = query(collection(db, 'invitations'), where('email', '==', email.toLowerCase()));
-        const invitationSnapshot = await getDocs(invitationQuery);
-        
-        // If user doesn't exist in the users collection and doesn't have an invitation, deny access
-        if (userSnapshot.empty && invitationSnapshot.empty) {
-          set({ isLoadingAuth: false });
-          throw new Error('Access denied. Your email is not authorized to use this application.');
-        }
-      }
-      
+      // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // Create user document in Firestore
+      // Save user data to Firestore
       await setDoc(doc(db, 'users', user.uid), {
         email: user.email,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        role: 'parent',
+        subscription: 'explorer', // Default free tier
+        childrenIds: [],
+        outstandingBalance: 0, // For tracking kids' reward debt
+        familyId: user.uid, // Default: user is the family creator
+        familyMembers: [{ uid: user.uid, role: 'parent', email: user.email }]
       });
       
-      const parentUser = { 
-        uid: user.uid, 
-        email: user.email, 
-        role: 'parent'
-      };
-      
-      set({ 
-        currentUser: parentUser, 
-        currentView: 'parentDashboard', 
-        isLoadingAuth: false,
-        childProfiles: [], 
-        quests: [], 
-        rewards: [] 
+      // Update store state
+      set({
+        currentUser: user,
+        userType: 'parent',
+        userData: {
+          email: user.email,
+          role: 'parent',
+          subscription: 'explorer',
+          childrenIds: [],
+          outstandingBalance: 0,
+          familyId: user.uid,
+          familyMembers: [{ uid: user.uid, role: 'parent', email: user.email }]
+        },
+        isInitialized: true,
       });
       
-      alert('Registration successful!');
-      return parentUser;
+      return user;
     } catch (error) {
-      set({ isLoadingAuth: false });
+      set({ error: error.message });
       throw error;
     }
   },
@@ -371,70 +316,52 @@ const useKiddoQuestStore = create((set, get) => ({
   
   checkAuthStatus: () => {
     set({ isLoadingAuth: true });
+    console.log('Starting auth check');
     
     return onAuthStateChanged(auth, async (user) => {
+      console.log('Auth state changed:', user ? `User logged in: ${user.email}` : 'No user');
+      
       if (user) {
         // User is signed in
         try {
-          // Always allow admin email
-          if (user.email !== 'thetangstr@gmail.com') {
-            // Check if user exists in the active users collection
-            const userQuery = query(collection(db, 'users'), where('email', '==', user.email.toLowerCase()));
-            const userSnapshot = await getDocs(userQuery);
-            
-            // If user doesn't exist in the users collection, sign them out
-            if (userSnapshot.empty) {
-              await signOut(auth);
-              set({ isLoadingAuth: false, currentView: 'login' });
-              return;
-            }
-            
-            // Check if user is active
-            const userData = userSnapshot.docs[0].data();
-            if (userData.status === 'inactive') {
-              await signOut(auth);
-              set({ isLoadingAuth: false, currentView: 'login' });
-              throw new Error('Your account has been deactivated. Please contact the administrator.');
-            }
-          }
+          // Check if admin user (thetangstr@gmail.com)
+          const isAdminEmail = user.email.toLowerCase() === 'thetangstr@gmail.com';
           
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          console.log('Auth state changed - User:', user.email, 'Is admin:', isAdminEmail);
           
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const parentUser = { 
-              uid: user.uid, 
-              email: user.email, 
-              role: 'parent',
-              // Explicitly track if user is admin
-              isAdmin: user.email === 'thetangstr@gmail.com'
-            };
-            
-            set({ 
-              currentUser: parentUser, 
-              currentView: 'parentDashboard', 
-              isLoadingAuth: false 
-            });
-            
+          // Create or update user document (simplified approach)
+          const parentUser = { 
+            uid: user.uid, 
+            email: user.email, 
+            role: isAdminEmail ? 'admin' : 'parent',
+            isAdmin: isAdminEmail
+          };
+          
+          // Always create/update the user document to ensure it exists
+          await setDoc(doc(db, 'users', user.uid), {
+            email: user.email.toLowerCase(),
+            role: parentUser.role,
+            status: 'active',
+            isAdmin: parentUser.isAdmin,
+            lastLogin: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          }, { merge: true }); // Use merge to update existing or create new
+          
+          set({ 
+            currentUser: parentUser,
+            isLoadingAuth: false,
+            currentView: parentUser.isAdmin ? 'adminDashboard' : 'parentDashboard'
+          });
+          
+          console.log('User authenticated via auth state change:', parentUser);
+          
+          // Fetch user data after successful authentication
+          try {
             await get().fetchParentData(parentUser.uid);
-          } else {
-            // Create user document if it doesn't exist (first login after registration)
-            await setDoc(doc(db, 'users', user.uid), {
-              email: user.email,
-              createdAt: serverTimestamp()
-            });
-            
-            const parentUser = { 
-              uid: user.uid, 
-              email: user.email, 
-              role: 'parent'
-            };
-            
-            set({ 
-              currentUser: parentUser, 
-              currentView: 'parentDashboard', 
-              isLoadingAuth: false 
-            });
+            console.log('Parent data fetched successfully');
+          } catch (err) {
+            console.error('Failed to fetch parent data:', err);
+            // Continue anyway - user is still authenticated
           }
         } catch (error) {
           console.error("Error checking user document:", error);
@@ -751,6 +678,7 @@ const useKiddoQuestStore = create((set, get) => ({
         avatar: avatarUrl,
         xp: profileData.xp || 0,
         parentId,
+        theme: profileData.theme || 'default',
         createdAt: serverTimestamp()
       });
       
@@ -759,6 +687,7 @@ const useKiddoQuestStore = create((set, get) => ({
         name: profileData.name,
         avatar: avatarUrl,
         xp: profileData.xp || 0,
+        theme: profileData.theme || 'default',
         parentId,
         createdAt: new Date().toISOString()
       };
@@ -801,6 +730,8 @@ const useKiddoQuestStore = create((set, get) => ({
         updatedAt: serverTimestamp()
       });
       
+      console.log('Updated child profile with data:', dataToUpdate);
+      
       // Update local state
       set(state => ({
         childProfiles: state.childProfiles.map(profile => 
@@ -838,7 +769,9 @@ const useKiddoQuestStore = create((set, get) => ({
 
   // --- Navigation Actions ---
   navigateTo: (view, params = {}) => {
+    console.log('🔄 navigateTo called:', { view, params, currentView: get().currentView });
     set({ currentView: view, ...params });
+    console.log('🔄 navigateTo completed, new state:', { currentView: get().currentView });
   },
   
   selectChildForDashboard: (childId) => {
@@ -1005,6 +938,7 @@ const useKiddoQuestStore = create((set, get) => ({
         parentId,
         status: 'available',
         image: imageUrl,
+        source: dataToAdd.source, // Save Amazon product source if present
         createdAt: serverTimestamp()
       });
       
@@ -1014,6 +948,7 @@ const useKiddoQuestStore = create((set, get) => ({
         parentId,
         status: 'available',
         image: imageUrl,
+        source: dataToAdd.source, // Include Amazon product source in state
         createdAt: new Date().toISOString()
       };
       
@@ -1035,8 +970,11 @@ const useKiddoQuestStore = create((set, get) => ({
     set({ isLoadingData: true });
     
     try {
+      const reward = get().rewards.find(r => r.id === rewardId);
+      if (!reward) throw new Error('Reward not found');
+      
       // Handle image upload if it's a file
-      let imageUrl = updatedData.image;
+      let imageUrl = null;
       
       if (updatedData.imageFile) {
         const parentId = get().currentUser?.uid;
@@ -1045,13 +983,14 @@ const useKiddoQuestStore = create((set, get) => ({
         imageUrl = await getDownloadURL(storageRef);
       }
       
-      // Prepare data for update (remove imageFile which is not needed in Firestore)
+      // Prepare data for Firestore (remove imageFile which is not needed in Firestore)
       const { imageFile, ...dataToUpdate } = updatedData;
-      if (imageUrl) dataToUpdate.image = imageUrl;
       
-      // Update in Firestore
+      // Update reward in Firestore
       await updateDoc(doc(db, 'rewards', rewardId), {
         ...dataToUpdate,
+        image: imageUrl || reward.image,
+        source: dataToUpdate.source, // Include Amazon source info
         updatedAt: serverTimestamp()
       });
       
@@ -1059,7 +998,12 @@ const useKiddoQuestStore = create((set, get) => ({
       set(state => ({
         rewards: state.rewards.map(reward => 
           reward.id === rewardId 
-            ? { ...reward, ...dataToUpdate } 
+            ? { 
+                ...reward, 
+                ...dataToUpdate, 
+                image: imageUrl || reward.image,
+                source: dataToUpdate.source
+              } 
             : reward
         ),
         isLoadingData: false,
@@ -1313,6 +1257,43 @@ const useKiddoQuestStore = create((set, get) => ({
     get().closeIconPicker();
   },
   
+  // --- Invitation Processing ---
+  processInvitationAfterAuth: async (token, userId) => {
+    if (!token) return { success: false, message: 'No invitation token provided' };
+    
+    try {
+      // Import invitationManager functions dynamically to avoid circular imports
+      const { verifyInvitation, acceptInvitation } = await import('./utils/invitationManager');
+      
+      // Verify the invitation token
+      const verificationResult = await verifyInvitation(token);
+      
+      if (!verificationResult.success) {
+        return verificationResult; // Return the error from verification
+      }
+      
+      // If verification successful, accept the invitation
+      const acceptResult = await acceptInvitation(verificationResult.invitation.id, userId);
+      
+      if (acceptResult.success) {
+        // Update the current user's family info if needed
+        const user = get().currentUser;
+        if (user) {
+          // Refresh user data to include new family connections
+          await get().fetchParentData(user.uid);
+        }
+      }
+      
+      return acceptResult;
+    } catch (error) {
+      console.error('Error processing invitation after auth:', error);
+      return { 
+        success: false, 
+        message: 'Failed to process invitation. Please try again.'
+      };
+    }
+  },
+  
   // --- Subscription Management ---
   updateSubscriptionTier: async (tier) => {
     const parentId = get().currentUser?.uid;
@@ -1366,3 +1347,8 @@ const useKiddoQuestStore = create((set, get) => ({
 }));
 
 export default useKiddoQuestStore;
+
+// Expose store to window for debugging
+if (typeof window !== 'undefined') {
+  window.useKiddoQuestStore = useKiddoQuestStore;
+}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { UserCog, ArrowLeft, Camera, Trash2, Save } from 'lucide-react';
+import { UserCog, ArrowLeft, Camera, Trash2, Save, Palette } from 'lucide-react';
 import useKiddoQuestStore from '../store';
-import { Button, InputField, Card, LoadingSpinner } from '../components/UI';
+import { Button, InputField, Card, LoadingSpinner, AccessibilityOptions } from '../components/UI';
+import { getAllThemes, THEME_CONFIGS, THEMES } from '../utils/themeManager';
 
 // Edit Child Profile Screen Component
 export const EditChildProfileScreen = () => {
@@ -17,7 +18,8 @@ export const EditChildProfileScreen = () => {
   const [formData, setFormData] = useState({
     name: '',
     avatar: '',
-    avatarFile: null
+    avatarFile: null,
+    theme: THEMES.DEFAULT
   });
   const [error, setError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -30,7 +32,8 @@ export const EditChildProfileScreen = () => {
         setFormData({
           name: childToEdit.name || '',
           avatar: childToEdit.avatar || '👦',
-          avatarFile: null
+          avatarFile: null,
+          theme: childToEdit.theme || THEMES.DEFAULT
         });
       }
     }
@@ -104,9 +107,18 @@ export const EditChildProfileScreen = () => {
       </Button>
       
       <Card className="p-6">
-        <h1 className="text-2xl font-bold text-indigo-600 mb-6 flex items-center">
-          <UserCog className="mr-2" /> Edit Child Profile
-        </h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-indigo-600 flex items-center">
+            <UserCog className="mr-2" /> Edit Child Profile
+          </h1>
+          {selectedChildId && (
+            <AccessibilityOptions 
+              childId={selectedChildId}
+              themeId={formData.theme}
+              onUpdate={(settings) => console.log('Accessibility settings updated:', settings)}
+            />
+          )}
+        </div>
         
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -170,6 +182,46 @@ export const EditChildProfileScreen = () => {
                   {avatar}
                 </button>
               ))}
+            </div>
+          </div>
+          
+          {/* Theme Selection */}
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-medium mb-2 flex items-center">
+              <Palette className="h-4 w-4 mr-1" /> Theme Customization
+            </label>
+            <p className="text-sm text-gray-600 mb-2">Pick a fun theme for your child's dashboard!</p>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {getAllThemes().map(theme => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, theme: theme.id }))}
+                  className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all
+                    ${formData.theme === theme.id 
+                    ? `ring-2 ring-offset-2 ring-${THEME_CONFIGS[theme.id].colors.primary} shadow-md` 
+                    : 'hover:bg-gray-50 border border-gray-200'}`}
+                >
+                  <div className={`text-3xl mb-2 ${theme.id === THEMES.DEFAULT ? '' : 'animate-pulse'}`}>
+                    {theme.icon}
+                  </div>
+                  <div className="text-sm font-medium">{theme.name}</div>
+                  <div 
+                    className={`w-full h-2 rounded-full mt-2 bg-gradient-to-r from-${theme.colors.primary} via-${theme.colors.secondary} to-${theme.colors.accent}`}
+                  />
+                </button>
+              ))}
+            </div>
+            
+            <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <h4 className="font-medium text-sm mb-1 flex items-center">
+                <span className="text-lg mr-2">{THEME_CONFIGS[formData.theme].icon}</span> 
+                {THEME_CONFIGS[formData.theme].name}
+              </h4>
+              <p className="text-xs text-gray-600">
+                {THEME_CONFIGS[formData.theme].description}
+              </p>
             </div>
           </div>
           

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, orderBy, query, doc, updateDoc, addDoc, serverTimestamp, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Button, Card, LoadingSpinner } from '../components/UI';
+import { cleanupDuplicateUsers } from '../utils/cleanupDuplicateUsers';
 
 // Admin Console tabs
 const TABS = {
@@ -29,96 +30,61 @@ export default function AdminConsole({ user, onBack }) {
   const [sendingInvitation, setSendingInvitation] = useState(false);
   const [invitationSuccess, setInvitationSuccess] = useState(false);
   
-  // Local test data for the Active Users tab with accurate information
-  const localTestUsers = [
-    {
-      id: '1',
-      email: 'thetangstr@gmail.com',
-      status: 'active',
-      isAdmin: true,
-      userType: 'admin',
-      lastLogin: { toDate: () => new Date() },
-      loginCount7Days: 12
-    },
-    {
-      id: '2',
-      email: 'fay.f.deng@gmail.com',
-      status: 'inactive',
-      isAdmin: false,
-      userType: 'app user',
-      lastLogin: null,
-      loginCount7Days: 0
-    },
-    {
-      id: '3',
-      email: 'thetangstr002@gmail.com',
-      status: 'inactive',
-      isAdmin: false,
-      userType: 'app user',
-      lastLogin: null,
-      loginCount7Days: 0
-    },
-    {
-      id: '4',
-      email: 'thetangstr003@gmail.com',
-      status: 'inactive',
-      isAdmin: false,
-      userType: 'app user',
-      lastLogin: null,
-      loginCount7Days: 0
-    },
-    {
-      id: '5',
-      email: 'kailortang@gmail.com',
-      status: 'inactive',
-      isAdmin: false,
-      userType: 'app user',
-      lastLogin: null,
-      loginCount7Days: 0
-    },
-    {
-      id: '6',
-      email: 'newuser@example.com',
-      status: 'inactive',
-      isAdmin: false,
-      userType: 'app user',
-      lastLogin: null,
-      loginCount7Days: 0
-    }
-  ];
+  // Cleanup state
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState(null);
   
-  // Get actual user data from Firestore with fallback to test data
+  // Get actual user data from Firestore with proper deduplication
   const fetchUserData = async () => {
     try {
       // Get all users from the users collection
       const usersQuery = query(collection(db, 'users'));
       const usersSnapshot = await getDocs(usersQuery);
       
-      // If we have real users, map them with activity data
-      if (usersSnapshot.docs.length > 0) {
-        return usersSnapshot.docs.map(doc => {
-          const userData = doc.data();
-          return {
+      // Create a Map to deduplicate by email (case-insensitive)
+      const userMap = new Map();
+      
+      usersSnapshot.docs.forEach(doc => {
+        const userData = doc.data();
+        const email = userData.email?.toLowerCase().trim();
+        
+        if (email) {
+          // If we already have this email, keep the one with more recent activity
+          const existingUser = userMap.get(email);
+          const currentUser = {
             id: doc.id,
             email: userData.email || 'Unknown',
             status: userData.status || (userData.lastLogin ? 'active' : 'inactive'),
-            isAdmin: userData.isAdmin || userData.email === 'thetangstr@gmail.com',
-            userType: userData.isAdmin || userData.email === 'thetangstr@gmail.com' ? 'admin' : 'app user',
+            isAdmin: userData.role === 'admin',
+            userType: userData.role === 'admin' ? 'admin' : 'app user',
             lastLogin: userData.lastLogin || null,
             loginCount7Days: userData.loginCount7Days || 0,
             createdAt: userData.createdAt || null
           };
-        });
-      } else {
-        // If no real users found, return test data
-        console.log('No users found in Firestore, using test data');
-        return localTestUsers;
-      }
+          
+          if (!existingUser || 
+              (currentUser.lastLogin && (!existingUser.lastLogin || 
+               currentUser.lastLogin.toDate() > existingUser.lastLogin.toDate()))) {
+            userMap.set(email, currentUser);
+          }
+        }
+      });
+      
+      // Convert Map back to array and sort by last login (most recent first)
+      const deduplicatedUsers = Array.from(userMap.values()).sort((a, b) => {
+        if (!a.lastLogin && !b.lastLogin) return 0;
+        if (!a.lastLogin) return 1;
+        if (!b.lastLogin) return -1;
+        return b.lastLogin.toDate() - a.lastLogin.toDate();
+      });
+      
+      console.log(`Fetched ${usersSnapshot.docs.length} user documents, deduplicated to ${deduplicatedUsers.length} unique users`);
+      return deduplicatedUsers;
+      
     } catch (error) {
       console.error('Error fetching users:', error);
-      // Return test data on error
-      console.log('Error fetching users, using test data');
-      return localTestUsers;
+      // Return empty array on error instead of test data
+      return [];
     }
   };
   
@@ -127,18 +93,11 @@ export default function AdminConsole({ user, onBack }) {
     try {
       const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
       
-      // Check if we're using test data or real data
-      const isTestData = users.some(user => user.id === userId && !user.id.includes('/'));
-      
-      if (!isTestData) {
-        // Update user status in Firestore for real users
-        await updateDoc(doc(db, 'users', userId), {
-          status: newStatus,
-          updatedAt: serverTimestamp()
-        });
-      } else {
-        console.log(`Test mode: Would update user ${userId} status to ${newStatus}`);
-      }
+      // Update user status in Firestore
+      await updateDoc(doc(db, 'users', userId), {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
       
       // Update local state
       setUsers(users.map(user => 
@@ -146,7 +105,7 @@ export default function AdminConsole({ user, onBack }) {
       ));
       
       // Show success message
-      alert(`User status successfully changed to ${newStatus}`);
+      console.log(`User ${userId} status successfully changed to ${newStatus}`);
       
       return true;
     } catch (error) {
@@ -156,6 +115,30 @@ export default function AdminConsole({ user, onBack }) {
     }
   };
 
+  // Handle cleanup duplicates
+  const handleCleanupDuplicates = async () => {
+    setCleanupLoading(true);
+    setCleanupResult(null);
+    
+    try {
+      const result = await cleanupDuplicateUsers();
+      
+      if (result.success) {
+        setCleanupResult(`✅ Cleanup completed! Removed ${result.duplicatesRemoved} duplicates, ${result.uniqueEmails} unique users remaining.`);
+        // Refresh user data
+        const userData = await fetchUserData();
+        setUsers(userData);
+      } else {
+        setCleanupResult(`❌ Cleanup failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      setCleanupResult(`❌ Cleanup failed: ${error.message}`);
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+  
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
@@ -305,8 +288,8 @@ export default function AdminConsole({ user, onBack }) {
     setSendingInvitation(false);
   };
   
-  // Access control - only thetangstr@gmail.com can access
-  if (!user || user.email !== 'thetangstr@gmail.com') {
+  // Access control - only admins can access
+  if (!user || user.role !== 'admin') {
     return <div className="p-8 text-center text-red-600">Access denied. Admin only.</div>;
   }
   
@@ -520,7 +503,18 @@ export default function AdminConsole({ user, onBack }) {
       {activeTab === TABS.USERS && (
         <div>
           <h2 className="text-xl font-semibold mb-4">Active Users</h2>
-          
+          <Button 
+            onClick={handleCleanupDuplicates} 
+            disabled={cleanupLoading}
+            className="mb-4"
+          >
+            {cleanupLoading ? 'Cleaning up...' : 'Cleanup Duplicate Users'}
+          </Button>
+          {cleanupResult && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded mb-4">
+              {cleanupResult}
+            </div>
+          )}
           {users.length === 0 ? (
             <div className="text-gray-600">No user activity data available.</div>
           ) : (

@@ -151,7 +151,7 @@ export const RewardFormScreen = () => {
     assignedTo: [],
     iconName: 'Gift',
     image: null,
-    imageFile: null
+    imageFile: null,
   });
   
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
@@ -192,6 +192,7 @@ export const RewardFormScreen = () => {
     setFormData(prev => ({ ...prev, iconName }));
     setIsIconPickerOpen(false);
   };
+
   
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -376,6 +377,7 @@ export const RewardFormScreen = () => {
         onClose={() => setIsIconPickerOpen(false)}
         onSelect={handleIconSelect}
       />
+      
     </div>
   );
 };

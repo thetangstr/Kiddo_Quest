@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Gift, CheckCircle, ArrowLeft, Award, Lock } from 'lucide-react';
+import { Shield, Gift, CheckCircle, ArrowLeft, Award, Lock, Palette } from 'lucide-react';
 import useKiddoQuestStore from '../store';
 import { Button, Card, XPProgressBar, LoadingSpinner, renderLucideIcon } from '../components/UI';
 import ReactConfetti from 'react-confetti';
 import PinModal from '../components/PinModal';
+import { getThemeById, getThemeClasses, getThemeAccessibilityOptions, THEMES } from '../utils/themeManager';
+import { respectReducedMotion, addFocusStyles } from '../utils/accessibilityUtils';
 
 // Child Dashboard Component
 const ChildDashboard = ({ onViewChange }) => {
@@ -31,6 +33,27 @@ const ChildDashboard = ({ onViewChange }) => {
   
   // Find the selected child profile
   const childProfile = childProfiles.find(child => child.id === selectedChildIdForDashboard);
+  
+  // Get the child's theme or use default
+  const childTheme = childProfile?.theme || THEMES.DEFAULT;
+  const theme = getThemeById(childTheme);
+  
+  // Get accessibility options
+  const accessOptions = getThemeAccessibilityOptions(childTheme);
+  const accessSettings = childProfile?.accessibility || {
+    highContrast: false,
+    reducedMotion: false,
+    largeText: false
+  };
+  
+  // Apply theme classes with accessibility enhancements
+  const backgroundClasses = getThemeClasses(childTheme, 'background');
+  const cardClasses = `${getThemeClasses(childTheme, 'card')} ${accessSettings.highContrast ? 'border-2 border-gray-800' : ''}`;
+  const buttonClasses = `${getThemeClasses(childTheme, 'button')} ${accessSettings.highContrast ? '!font-bold' : ''}`;
+  const textClasses = `${getThemeClasses(childTheme, 'text')} ${accessSettings.largeText ? 'text-lg' : ''}`;
+  
+  // Apply reduced motion settings if needed
+  const animationClasses = accessSettings.reducedMotion ? 'transition-none transform-none' : 'transition-all duration-300';
   
   // Filter quests and rewards for this child
   const availableQuests = quests.filter(quest => 
@@ -161,29 +184,35 @@ const ChildDashboard = ({ onViewChange }) => {
     }
   };
   
-  if (isLoadingData || !childProfile) {
-    return <LoadingSpinner message="Loading dashboard..." />;
+  if (isLoadingData) {
+    return <LoadingSpinner message="Loading child dashboard..." />;
+  }
+  
+  if (!childProfile) {
+    return <div className="p-4">Child profile not found</div>;
   }
   
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl bg-gradient-to-b from-blue-100 via-purple-100 to-pink-100 min-h-screen rounded-lg" data-tutorial="child-dashboard">
+    <div 
+      className={`min-h-screen ${backgroundClasses} p-4 ${accessSettings.largeText ? 'text-lg' : ''}`}
+      style={accessSettings.highContrast ? { filter: 'contrast(1.2)' } : {}}>
       {/* Parent Access Button */}
       <div className="fixed bottom-4 right-4 z-10">
         <button
           onClick={handleParentAccess}
-          className="bg-indigo-600 text-white p-3 rounded-full shadow-lg hover:bg-indigo-700 transition-colors flex items-center justify-center"
+          className={`bg-indigo-600 text-white p-3 rounded-full shadow-lg hover:bg-indigo-700 transition-colors flex items-center justify-center ${accessSettings.highContrast ? '!font-bold' : ''}`}
           aria-label="Parent Access"
         >
           <Lock size={24} />
         </button>
       </div>
       {/* Confetti effect when claiming rewards */}
-      {showConfetti && (
+      {showConfetti && !accessSettings.reducedMotion && (
         <ReactConfetti
           width={windowSize.width}
           height={windowSize.height}
           recycle={false}
-          numberOfPieces={500}
+          numberOfPieces={accessSettings.reducedMotion ? 50 : 200}
           gravity={0.2}
           onConfettiComplete={() => setShowConfetti(false)}
         />
@@ -217,20 +246,20 @@ const ChildDashboard = ({ onViewChange }) => {
           >
             <Lock size={14} className="ml-1" />
           </Button>
-          <h1 className="text-3xl font-bold text-pink-600 bg-yellow-100 px-4 py-2 rounded-full shadow-md">{childProfile.name}'s Adventure</h1>
+          <h1 className={`text-3xl font-bold ${textClasses}`}>{childProfile.name}'s Adventure</h1>
         </div>
       </div>
       
       {/* XP Progress */}
-      <Card className="p-6 mb-8 bg-gradient-to-r from-yellow-200 to-orange-200 rounded-xl shadow-lg">
-        <div className="flex items-center mb-4">
+      <Card className={`${cardClasses} shadow-md p-4 mb-6 flex justify-between items-center rounded-b-lg`}>
+        <div className="flex items-center">
           <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center text-4xl mr-4 overflow-hidden shadow-md">
             {typeof childProfile.avatar === 'string' && childProfile.avatar.startsWith('http') 
               ? <img src={childProfile.avatar} alt={childProfile.name} className="w-full h-full object-cover" />
               : childProfile.avatar || '👶'}
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-purple-600">{childProfile.name}</h2>
+            <h2 className={`text-2xl font-bold ${textClasses}`}>{childProfile.name}</h2>
             <div className="flex items-center bg-white px-3 py-1 rounded-full shadow-inner mt-1">
               <Award className="text-yellow-500 mr-1" size={20} />
               <span className="font-bold text-pink-600 text-xl">{childProfile.xp || 0} Stars</span>
@@ -244,29 +273,29 @@ const ChildDashboard = ({ onViewChange }) => {
       
       {/* Available Quests */}
       <section className="mb-8">
-        <h2 className="text-2xl font-bold mb-4 flex items-center bg-green-200 text-green-700 px-4 py-2 rounded-full shadow-md inline-block">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center ${textClasses}`}>
           <CheckCircle className="mr-2" /> My Fun Missions
         </h2>
         
         {availableQuests.length === 0 ? (
-          <Card className="p-6 text-center bg-blue-100 rounded-xl shadow-md">
-            <p className="text-blue-600 font-bold text-lg">No missions available right now.</p>
-            <p className="text-blue-500">Check back soon for new adventures!</p>
+          <Card className={`${cardClasses} p-6 text-center`}>
+            <p className={`text-blue-600 font-bold text-lg ${textClasses}`}>No missions available right now.</p>
+            <p className={`text-blue-500 ${textClasses}`}>Check back soon for new adventures!</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {availableQuests.map(quest => (
-              <Card key={quest.id} className="p-6 bg-gradient-to-r from-blue-100 to-green-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 child-profile-card">
+              <Card key={quest.id} className={`${cardClasses} p-6 bg-gradient-to-r from-blue-100 to-green-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 child-profile-card`}>
                 <div className="flex items-start mb-4">
                   <div className="mr-4 p-3 bg-white rounded-full shadow-md text-pink-500">
                     {renderLucideIcon(quest.iconName || 'CheckCircle', { size: 28 })}
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-purple-600">{quest.title}</h3>
-                    <p className="text-md text-blue-600 mb-3 font-medium">{quest.description}</p>
+                    <h3 className={`text-xl font-bold ${textClasses}`}>{quest.title}</h3>
+                    <p className={`text-md text-blue-600 mb-3 font-medium ${textClasses}`}>{quest.description}</p>
                     <div className="flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner inline-block">
                       <Award className="text-yellow-500 mr-1" size={18} />
-                      <span className="text-md font-bold text-pink-600">{quest.xp} Stars!</span>
+                      <span className={`text-md font-bold text-pink-600 ${textClasses}`}>{quest.xp} Stars!</span>
                       {quest.type === 'recurring' && (
                         <span className="ml-2 text-sm bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
                           {quest.frequency}
@@ -285,9 +314,9 @@ const ChildDashboard = ({ onViewChange }) => {
                   </div>
                 )}
                 <Button
-                  variant="primary"
+                  variant="custom"
+                  className={`${buttonClasses} mt-auto`}
                   onClick={() => handleClaimQuest(quest.id)}
-                  className="w-full mt-3 bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 text-white font-bold py-3 px-4 rounded-xl border-4 border-green-300 shadow-lg transform hover:scale-105 transition-all duration-300 text-lg"
                 >
                   I Did This! 🎉
                 </Button>
@@ -300,25 +329,25 @@ const ChildDashboard = ({ onViewChange }) => {
       {/* Pending Verification */}
       {pendingQuests.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
+          <h2 className={`text-xl font-semibold mb-4 flex items-center ${textClasses}`}>
             <Shield className="mr-2" /> Waiting for Verification
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {pendingQuests.map(quest => (
-              <Card key={quest.id} className="p-6 border-l-4 border-yellow-400">
+              <Card key={quest.id} className={`${cardClasses} p-6 border-l-4 border-yellow-400`}>
                 <div className="flex items-start">
                   <div className="mr-4 text-yellow-500">
                     {renderLucideIcon(quest.iconName || 'CheckCircle', { size: 24 })}
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium">{quest.title}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{quest.description}</p>
+                    <h3 className={`text-lg font-medium ${textClasses}`}>{quest.title}</h3>
+                    <p className={`text-sm text-gray-600 mb-2 ${textClasses}`}>{quest.description}</p>
                     <div className="flex items-center">
                       <Award className="text-yellow-500 mr-1" size={16} />
-                      <span className="text-sm font-medium text-indigo-600">{quest.xp} XP</span>
+                      <span className={`text-sm font-medium text-indigo-600 ${textClasses}`}>{quest.xp} XP</span>
                     </div>
-                    <p className="text-sm text-yellow-600 mt-2">
+                    <p className={`text-sm text-yellow-600 mt-2 ${textClasses}`}>
                       Waiting for parent to verify completion
                     </p>
                   </div>
@@ -331,14 +360,14 @@ const ChildDashboard = ({ onViewChange }) => {
       
       {/* Available Rewards */}
       <section className="mb-8" data-tutorial="rewards-section">
-        <h2 className="text-2xl font-bold mb-4 flex items-center bg-purple-200 text-purple-700 px-4 py-2 rounded-full shadow-md inline-block">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center ${textClasses}`}>
           <Gift className="mr-2" /> Treasure Chest
         </h2>
         
         {availableRewards.length === 0 ? (
-          <Card className="p-6 text-center bg-purple-100 rounded-xl shadow-md">
-            <p className="text-purple-600 font-bold text-lg">No treasures available right now.</p>
-            <p className="text-purple-500">Complete missions to earn stars and unlock treasures!</p>
+          <Card className={`${cardClasses} p-6 text-center`}>
+            <p className={`text-purple-600 font-bold text-lg ${textClasses}`}>No treasures available right now.</p>
+            <p className={`text-purple-500 ${textClasses}`}>Complete missions to earn stars and unlock treasures!</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -346,17 +375,17 @@ const ChildDashboard = ({ onViewChange }) => {
               const canAfford = (childProfile.xp || 0) >= reward.cost;
               
               return (
-                <Card key={reward.id} className="p-6 bg-gradient-to-r from-pink-100 to-purple-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <Card key={reward.id} className={`${cardClasses} p-6 bg-gradient-to-r from-pink-100 to-purple-100 rounded-xl shadow-lg`}>
                   <div className="flex items-start mb-4">
                     <div className="mr-4 p-3 bg-white rounded-full shadow-md text-pink-500">
                       {renderLucideIcon(reward.iconName || 'Gift', { size: 28 })}
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-purple-600">{reward.title}</h3>
-                      <p className="text-md text-pink-600 mb-3 font-medium">{reward.description}</p>
+                      <h3 className={`text-xl font-bold ${textClasses}`}>{reward.title}</h3>
+                      <p className={`text-md text-pink-600 mb-3 font-medium ${textClasses}`}>{reward.description}</p>
                       <div className="flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner inline-block">
                         <Award className="text-yellow-500 mr-1" size={18} />
-                        <span className="text-md font-bold text-purple-600">{reward.cost} Stars needed</span>
+                        <span className={`text-md font-bold text-purple-600 ${textClasses}`}>{reward.cost} Stars needed</span>
                       </div>
                     </div>
                   </div>
@@ -373,15 +402,15 @@ const ChildDashboard = ({ onViewChange }) => {
                   
                   {canAfford ? (
                     <Button 
-                      variant="primary" 
+                      variant="custom"
+                      className={`${buttonClasses} mt-auto w-full`}
                       onClick={() => handleClaimReward(reward.id)}
-                      className="w-full mt-3 bg-gradient-to-r from-purple-400 to-pink-500 hover:from-purple-500 hover:to-pink-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300 text-lg"
                     >
                       Get My Treasure! 🎁
                     </Button>
                   ) : (
                     <div className="w-full mt-3 bg-gray-100 text-center py-3 px-4 rounded-xl shadow-inner">
-                      <p className="text-purple-600 font-bold">
+                      <p className={`text-purple-600 font-bold ${textClasses}`}>
                         Need {reward.cost - (childProfile.xp || 0)} more stars ⭐
                       </p>
                     </div>

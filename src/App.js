@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import useKiddoQuestStore from './store';
 import { LoadingSpinner } from './components/UI';
 import { GuidedTutorial, shouldShowGuidedTutorial } from './components/GuidedTutorial';
@@ -7,6 +8,8 @@ import PinVerification from './components/PinVerification';
 // Import screens
 import { LoginScreen, RegistrationScreen } from './screens/Auth';
 import ParentDashboard from './screens/ParentDashboard';
+import InvitationVerification from './screens/InvitationAcceptance';
+import { InvitationManager } from './components/InvitationManager';
 import { AddChildScreen, ChildSelectionScreen } from './screens/ChildManagement';
 import { EditChildProfileScreen } from './screens/EditChildProfile';
 import ChildDashboard from './screens/ChildDashboard';
@@ -27,7 +30,8 @@ function App() {
     currentUser,
     requirePin,
     setRequirePin,
-    hasParentPin
+    hasParentPin,
+    navigateTo
   } = useKiddoQuestStore();
   
   const [showTutorial, setShowTutorial] = useState(false);
@@ -44,6 +48,26 @@ function App() {
       }
     };
   }, [checkAuthStatus]);
+  
+  // Handle invitation tokens in URL
+  useEffect(() => {
+    const checkForInvitationToken = () => {
+      const queryParams = new URLSearchParams(window.location.search);
+      const token = queryParams.get('token');
+      
+      if (token) {
+        navigateTo('inviteVerify');
+      }
+    };
+    
+    checkForInvitationToken();
+    
+    // Listen for URL changes
+    window.addEventListener('popstate', checkForInvitationToken);
+    return () => {
+      window.removeEventListener('popstate', checkForInvitationToken);
+    };
+  }, [navigateTo]);
   
   // Show tutorial for first-time users after login
   useEffect(() => {
@@ -85,15 +109,14 @@ function App() {
         } else {
           // No PIN set, allow direct access
           setRequirePin(false);
-          // Apply the pending view change
-          const { setCurrentView } = useKiddoQuestStore.getState();
-          setCurrentView(pendingView);
+          // Apply the pending view change - use navigateTo from store props instead
+          navigateTo(pendingView);
           setPendingView(null);
         }
       } else {
         // For other transitions, just apply the change directly
-        const { setCurrentView } = useKiddoQuestStore.getState();
-        setCurrentView(pendingView);
+        // Use navigateTo from props instead of directly accessing the store
+        navigateTo(pendingView);
         setPendingView(null);
       }
     };
@@ -101,7 +124,7 @@ function App() {
     if (pendingView) {
       checkPinRequirement();
     }
-  }, [pendingView, currentView, currentUser, hasParentPin, setRequirePin]);
+  }, [pendingView, currentView, currentUser, hasParentPin, setRequirePin, navigateTo]);
   
   // Handle view changes with PIN verification
   const handleViewChange = (newView) => {
@@ -124,8 +147,8 @@ function App() {
     
     // Apply the pending view change
     if (pendingView) {
-      const { setCurrentView } = useKiddoQuestStore.getState();
-      setCurrentView(pendingView);
+      // Use navigateTo from props instead of directly accessing the store
+      navigateTo(pendingView);
       setPendingView(null);
     }
   };
@@ -139,6 +162,14 @@ function App() {
   
   // Render the appropriate view based on currentView state
   const renderView = () => {
+    // Add debugging to help troubleshoot view rendering
+    console.log('Rendering view:', { 
+      currentView, 
+      isLoadingAuth, 
+      hasCurrentUser: !!currentUser,
+      userEmail: currentUser?.email
+    });
+    
     // Wrap components with PIN verification if needed
     const wrapWithPinCheck = (Component) => {
       return (
@@ -150,7 +181,7 @@ function App() {
     
     // Show loading spinner while checking auth
     if (isLoadingAuth) {
-      return <LoadingSpinner message="Loading..." />;
+      return <LoadingSpinner message="Loading Kiddo Quest..." data-testid="loading-spinner" />;
     }
     
     switch(currentView) {
@@ -158,6 +189,10 @@ function App() {
         return <LoginScreen />;
       case 'register':
         return <RegistrationScreen />;
+      case 'adminDashboard':
+        // Admin users still see ParentDashboard but with additional admin controls
+        console.log('Rendering admin dashboard for admin user:', currentUser?.email);
+        return <ParentDashboard />;
       case 'parentDashboard':
         return <ParentDashboard />;
       case 'addChild':
@@ -178,24 +213,68 @@ function App() {
         return <RewardFormScreen />;
       case 'subscription':
         return <SubscriptionManagementScreen />;
+      case 'inviteVerify':
+        return <InvitationVerification />;
+      case 'manageInvitations':
+        // Only admin users can manage invitations
+        if (currentUser?.role === 'admin') {
+          return <InvitationManager />;
+        } else {
+          // Redirect non-admin users
+          return <Navigate to="/" replace />;
+        }
       default:
         return <LoginScreen />;
     }
   };
   
+  console.log('App render state:', { 
+    currentView, 
+    isLoadingAuth, 
+    hasCurrentUser: !!currentUser,
+    userEmail: currentUser?.email
+  });
+
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      {showTutorial && <GuidedTutorial onClose={() => setShowTutorial(false)} />}
-      {renderView()}
-      {showPinVerification && (
-        <PinVerification 
-          onSuccess={handlePinSuccess} 
-          onCancel={handlePinCancel} 
-        />
-      )}
-      <FeedbackButton onClick={() => setFeedbackOpen(true)} />
-      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} user={currentUser} />
-    </div>
+    <Router>
+      <div className="min-h-screen bg-gray-50 font-sans">
+        {/* Authentication status marker for testing */}
+        {currentUser && !isLoadingAuth && (
+          <div id="auth-success-marker" data-testid="auth-success-marker" style={{ display: 'none' }}>
+            Authentication successful: {currentUser.email}
+            Current view: {currentView}
+          </div>
+        )}
+        
+        {/* Show loading spinner while auth is initializing */}
+        {isLoadingAuth ? (
+          <div className="flex items-center justify-center min-h-screen">
+            <LoadingSpinner message="Loading..." data-testid="loading-spinner" />
+          </div>
+        ) : (
+          <>
+            {showTutorial && <GuidedTutorial onClose={() => setShowTutorial(false)} />}
+            {renderView()}
+            
+            {/* Show feedback button in bottom right */}
+            <FeedbackButton onClick={() => setFeedbackOpen(true)} />
+            
+            {/* PIN Verification Modal */}
+            {showPinVerification && (
+              <PinVerification
+                onSuccess={handlePinSuccess}
+                onCancel={handlePinCancel}
+              />
+            )}
+            
+            {/* Feedback Modal */}
+            {feedbackOpen && (
+              <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} user={currentUser} />
+            )}
+          </>
+        )}      
+      </div>
+    </Router>
   );
 }
 

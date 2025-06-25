@@ -1,29 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { LogIn, UserPlus, Mail, Check, AlertCircle } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { LogIn, UserPlus, Mail, Check, AlertCircle, Link } from 'lucide-react';
 import useKiddoQuestStore from '../store';
 import { Button, InputField, Card } from '../components/UI';
 import { isEmailAllowed, ALLOWLIST_ENABLED } from '../utils/allowlist';
 import { GoogleLogo } from '../components/GoogleLogo';
+import { verifyInvitation } from '../utils/invitationManager';
 
 // Login Screen Component
 export const LoginScreen = () => {
+  const [searchParams] = useSearchParams();
+  const invitationToken = searchParams.get('token');
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAllowlisted, setIsAllowlisted] = useState(false);
+  const [hasInvitation, setHasInvitation] = useState(false);
+  const [invitationDetails, setInvitationDetails] = useState(null);
   
-  // Check if email is in allowlist as user types
+  // Check invitation token if present
   useEffect(() => {
-    if (email && ALLOWLIST_ENABLED) {
+    const checkInvitation = async () => {
+      if (invitationToken) {
+        try {
+          const result = await verifyInvitation(invitationToken);
+          if (result.success) {
+            setHasInvitation(true);
+            setInvitationDetails(result.invitation);
+            // Pre-fill email if invitation is valid
+            setEmail(result.invitation.email);
+            // Skip allowlist check for users with valid invitations
+            setIsAllowlisted(true);
+          }
+        } catch (error) {
+          console.error('Error verifying invitation:', error);
+        }
+      }
+    };
+    
+    checkInvitation();
+  }, [invitationToken]);
+  
+  // Check if email is in allowlist as user types (skip if we have a valid invitation)
+  useEffect(() => {
+    if (!hasInvitation && email && ALLOWLIST_ENABLED) {
       setIsAllowlisted(isEmailAllowed(email));
+    } else if (hasInvitation) {
+      setIsAllowlisted(true);
     } else {
       setIsAllowlisted(false);
     }
-  }, [email]);
+  }, [email, hasInvitation]);
   
-  const { loginParent, loginWithGoogle, navigateTo } = useKiddoQuestStore();
+  const { loginParent, loginWithGoogle, navigateTo, processInvitationAfterAuth } = useKiddoQuestStore();
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,7 +63,13 @@ export const LoginScreen = () => {
     setIsLoading(true);
     
     try {
-      await loginParent(email, password);
+      // Login the user
+      const user = await loginParent(email, password);
+      
+      // Process invitation if present
+      if (invitationToken && user) {
+        await processInvitationAfterAuth(invitationToken, user.uid);
+      }
     } catch (error) {
       setError(error.message || 'Failed to login. Please check your credentials.');
     } finally {
@@ -44,7 +82,13 @@ export const LoginScreen = () => {
     setIsGoogleLoading(true);
     
     try {
-      await loginWithGoogle();
+      // Login with Google
+      const user = await loginWithGoogle();
+      
+      // Process invitation if present
+      if (invitationToken && user) {
+        await processInvitationAfterAuth(invitationToken, user.uid);
+      }
     } catch (error) {
       setError(error.message || 'Failed to login with Google.');
     } finally {
@@ -138,13 +182,39 @@ export const LoginScreen = () => {
 
 // Registration Screen Component
 export const RegistrationScreen = () => {
+  const [searchParams] = useSearchParams();
+  const invitationToken = searchParams.get('token');
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [hasInvitation, setHasInvitation] = useState(false);
+  const [invitationDetails, setInvitationDetails] = useState(null);
   
-  const { registerParent, navigateTo } = useKiddoQuestStore();
+  const { registerParent, navigateTo, processInvitationAfterAuth } = useKiddoQuestStore();
+  
+  // Check invitation token if present
+  useEffect(() => {
+    const checkInvitation = async () => {
+      if (invitationToken) {
+        try {
+          const result = await verifyInvitation(invitationToken);
+          if (result.success) {
+            setHasInvitation(true);
+            setInvitationDetails(result.invitation);
+            // Pre-fill email if invitation is valid
+            setEmail(result.invitation.email);
+          }
+        } catch (error) {
+          console.error('Error verifying invitation:', error);
+        }
+      }
+    };
+    
+    checkInvitation();
+  }, [invitationToken]);
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -158,7 +228,13 @@ export const RegistrationScreen = () => {
     setIsLoading(true);
     
     try {
-      await registerParent(email, password);
+      // Register the user
+      const user = await registerParent(email, password);
+      
+      // Process invitation if present
+      if (invitationToken && user) {
+        await processInvitationAfterAuth(invitationToken, user.uid);
+      }
     } catch (error) {
       setError(error.message || 'Failed to register. Please try again.');
     } finally {

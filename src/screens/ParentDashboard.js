@@ -24,6 +24,15 @@ const ParentDashboard = () => {
     currentView,
     hasParentPin
   } = useKiddoQuestStore();
+  const handleCloseAdminConsole = () => {
+    setShowAdminConsole(false);
+  };
+  
+  // Handle navigation to invitation management
+  const handleManageInvitations = () => {
+    navigateTo('manageInvitations');
+  };
+
   const [showAdminConsole, setShowAdminConsole] = useState(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [hasPinSet, setHasPinSet] = useState(false);
@@ -43,7 +52,7 @@ const ParentDashboard = () => {
   }
   
   if (showAdminConsole) {
-    return <AdminConsole user={currentUser} onBack={() => setShowAdminConsole(false)} />;
+    return <AdminConsole user={currentUser} onBack={handleCloseAdminConsole} />;
   }
   
   if (showPinSetup) {
@@ -67,12 +76,15 @@ const ParentDashboard = () => {
   // Filter quests that need verification
   const pendingQuests = quests.filter(quest => quest.status === 'pending_verification');
   
+  // Check if user is admin
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin;
+  
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="container mx-auto px-4 py-8 max-w-6xl" data-testid="parent-dashboard">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-indigo-600">Parent Dashboard</h1>
+        <h1 className="text-3xl font-bold text-indigo-600" id="dashboard-title" data-testid="dashboard-title">Parent Dashboard</h1>
         <div className="flex space-x-3">
-          {(currentUser?.email === 'thetangstr@gmail.com' || currentUser?.isAdmin) && (
+          {isAdmin && (
             <Button 
               variant="outline" 
               onClick={() => setShowAdminConsole(true)}
@@ -97,6 +109,11 @@ const ParentDashboard = () => {
           >
             Subscription
           </Button>
+          {isAdmin && (
+            <Button variant="secondary" onClick={handleManageInvitations}>
+              Manage Invitations
+            </Button>
+          )}
           <Button variant="outline" icon={LogOut} onClick={logout}>
             Sign Out
           </Button>

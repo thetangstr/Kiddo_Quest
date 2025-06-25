@@ -37,7 +37,7 @@ export default function AdminBugListScreen({ user, onBack }) {
     fetchReports();
   }, []);
 
-  if (!user || user.email !== 'thetangstr@gmail.com') {
+  if (!user || user.role !== 'admin') {
     return <div className="p-8 text-center text-red-600">Access denied. Admins only.</div>;
   }
   if (loading) return <LoadingSpinner message="Loading bug reports..." />;
