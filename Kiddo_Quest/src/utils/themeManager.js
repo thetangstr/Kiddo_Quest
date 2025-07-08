@@ -1,11 +1,10 @@
 // Theme Manager for Kiddo Quest
 // Handles theme selection, storage, and application for child profiles
 
-import { doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
   getOptimalTextColor,
-  meetsWCAGAA,
   addFocusStyles,
   enhanceTouchTarget,
   respectReducedMotion
