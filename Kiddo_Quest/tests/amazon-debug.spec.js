@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 
 test('Debug Amazon Browser Feature', async ({ page }) => {
   // Enable JavaScript and wait for React to load
-  await page.goto('http://localhost:5001', { waitUntil: 'networkidle' });
+  await page.goto('/', { waitUntil: 'networkidle' });
   
   // Wait for React app to fully load
   await page.waitForSelector('body', { timeout: 10000 });

@@ -4,7 +4,7 @@ test('Confirm Amazon Modal Is Working', async ({ page }) => {
   console.log('✅ Confirming Amazon Modal Works');
   
   // Navigate to the app
-  await page.goto('http://localhost:5001', { waitUntil: 'networkidle' });
+  await page.goto('/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
   
   // Login as admin

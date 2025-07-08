@@ -4,7 +4,7 @@ test('Find Amazon Browser Button', async ({ page }) => {
   console.log('🔍 Looking for Amazon Browser Button');
   
   // Navigate to the app
-  await page.goto('http://localhost:5001', { waitUntil: 'networkidle' });
+  await page.goto('/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
   
   // Login as admin

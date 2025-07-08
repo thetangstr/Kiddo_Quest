@@ -11,7 +11,7 @@ test.describe('UI Component Testing', () => {
     });
 
     // Navigate to the app
-    await page.goto('http://localhost:3000');
+    await page.goto('/');
     
     // Wait for the page to load
     await page.waitForLoadState('networkidle');
@@ -40,7 +40,7 @@ test.describe('UI Component Testing', () => {
   });
 
   test('Login form elements are present', async ({ page }) => {
-    await page.goto('http://localhost:3000');
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
     
     // Wait a bit for React to render
@@ -57,8 +57,8 @@ test.describe('UI Component Testing', () => {
     const passwordInput = page.locator('input[type="password"]');
     console.log('Password input visible:', await passwordInput.isVisible());
     
-    // Check if sign in button exists
-    const signInButton = page.locator('button:has-text("Sign In")');
+    // Check if sign in button exists (using more specific selector to avoid strict mode)
+    const signInButton = page.locator('button[type="submit"]');
     console.log('Sign In button visible:', await signInButton.isVisible());
     
     // Log the HTML content for debugging

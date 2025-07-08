@@ -20,7 +20,7 @@ test.describe('Production React Error #185 Fix Verification', () => {
     });
     
     // Navigate to production build
-    await page.goto('http://localhost:5001', { 
+    await page.goto('/', { 
       waitUntil: 'networkidle',
       timeout: 10000 
     });

@@ -4,7 +4,7 @@ test('Debug Modal State', async ({ page }) => {
   console.log('🐛 Debugging Modal State');
   
   // Navigate to the app
-  await page.goto('http://localhost:5001', { waitUntil: 'networkidle' });
+  await page.goto('/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
   
   // Login as admin

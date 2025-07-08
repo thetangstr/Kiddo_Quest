@@ -4,7 +4,7 @@ test('Test Amazon Browser Component Directly', async ({ page }) => {
   console.log('🚀 Testing Amazon Browser Component');
   
   // Navigate to the app
-  await page.goto('http://localhost:5001', { waitUntil: 'networkidle' });
+  await page.goto('/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
   
   // Login

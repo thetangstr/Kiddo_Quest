@@ -9,7 +9,7 @@ test('Admin to Rewards Management Flow', async ({ page }) => {
   });
   
   // Navigate to the app
-  await page.goto('http://localhost:5001', { waitUntil: 'networkidle' });
+  await page.goto('/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
   
   // Login as admin

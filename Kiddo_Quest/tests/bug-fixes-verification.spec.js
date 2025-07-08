@@ -17,7 +17,7 @@ test.describe('Bug Fixes Verification', () => {
       // Try to login with test credentials
       await page.fill('input[type="email"]', 'test@example.com');
       await page.fill('input[type="password"]', 'password123');
-      await page.click('button:has-text("Sign In")');
+      await page.click('button[type="submit"]');
       await page.waitForTimeout(2000);
     }
 
@@ -65,7 +65,7 @@ test.describe('Bug Fixes Verification', () => {
       // Try to login with test credentials
       await page.fill('input[type="email"]', 'test@example.com');
       await page.fill('input[type="password"]', 'password123');
-      await page.click('button:has-text("Sign In")');
+      await page.click('button[type="submit"]');
       await page.waitForTimeout(2000);
     }
 
@@ -121,7 +121,7 @@ test.describe('Bug Fixes Verification', () => {
       // Try to login
       await page.fill('input[type="email"]', 'test@example.com');
       await page.fill('input[type="password"]', 'password123');
-      await page.click('button:has-text("Sign In")');
+      await page.click('button[type="submit"]');
       await page.waitForTimeout(2000);
     }
     

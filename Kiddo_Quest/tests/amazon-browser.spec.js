@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 test.describe('Amazon Browser Feature', () => {
   test('should allow browsing Amazon products and creating rewards', async ({ page }) => {
     // Navigate to the app
-    await page.goto('http://localhost:5001');
+    await page.goto('/');
     
     // Sign in with admin credentials
     await page.fill('input[type="email"]', 'testadmin@example.com');
@@ -82,7 +82,7 @@ test.describe('Amazon Browser Feature', () => {
   
   test('should handle Amazon modal close without selection', async ({ page }) => {
     // Navigate to the app
-    await page.goto('http://localhost:5001');
+    await page.goto('/');
     
     // Sign in with admin credentials
     await page.fill('input[type="email"]', 'testadmin@example.com');
