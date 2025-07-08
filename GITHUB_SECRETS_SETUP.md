@@ -16,11 +16,18 @@ Go to: https://github.com/thetangstr/Kiddo_Quest/settings/secrets/actions
 3. Copy the entire JSON content and add as `FIREBASE_TOKEN`
 
 ### 2. EXPO_TOKEN (for mobile builds)
-**To generate**:
-1. `cd KiddoQuest_mobile`
-2. `npx expo login` (if not already logged in)
-3. `npx expo token:create --name "GitHub Actions CI/CD"`
+**Method 1 - Via Expo Website**:
+1. Go to https://expo.dev/accounts/[your-username]/settings/access-tokens
+2. Click "Create Token"
+3. Name it "GitHub Actions CI/CD" 
 4. Copy the generated token
+
+**Method 2 - Via EAS CLI**:
+1. `npm install -g @expo/cli`
+2. `npx @expo/cli login` (if not already logged in)
+3. Go to https://expo.dev/accounts/thetangstr/settings/access-tokens to create token manually
+
+**Note**: The new Expo CLI doesn't support `token:create` command. Use the web interface instead.
 
 ### 3. SLACK_WEBHOOK (optional - for notifications)
 **To generate**:
