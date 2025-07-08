@@ -41,7 +41,7 @@ jobs:
         echo "=== Package.json content ==="
         cat package.json | head -20
         echo "=== Installing dependencies ==="
-        npm ci --verbose
+        npm install --verbose
         
     - name: Run linting
       run: |
@@ -91,7 +91,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd Kiddo_Quest
-        npm ci
+        npm install
         
     - name: Install Playwright browsers
       run: |
@@ -132,7 +132,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd Kiddo_Quest
-        npm ci
+        npm install
         
     - name: Build for staging
       run: |
@@ -175,7 +175,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd Kiddo_Quest
-        npm ci
+        npm install
         
     - name: Build for production
       run: |
@@ -225,7 +225,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd Kiddo_Quest
-        npm ci
+        npm install
         
     - name: Run security audit
       run: |
