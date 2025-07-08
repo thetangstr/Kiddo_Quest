@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "303359892497",
+    "project_id": "kiddo-quest-de7b0",
+    "storage_bucket": "kiddo-quest-de7b0.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:303359892497:android:8ff4db457c6838fbe155c5",
+        "android_client_info": {
+          "package_name": "com.kiddoquest.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "303359892497-placeholder.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBPcxz0AXwkNdmgfCvXwv8qz0vJ_ijX7FY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "303359892497-placeholder.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

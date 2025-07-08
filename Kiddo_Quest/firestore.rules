@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is admin (using email check to avoid circular permissions)
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'thetangstr@gmail.com';
+    }
+    
+    // Helper function to check if user owns the resource
+    function isOwner(ownerId) {
+      return request.auth != null && request.auth.uid == ownerId;
+    }
+    
+    // Helper function to check if user is admin or owner
+    function isAdminOrOwner(ownerId) {
+      return request.auth != null && (request.auth.uid == ownerId || isAdmin());
+    }
+    
+    // User profiles - users can only access their own data, admins can access all
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && isAdmin();
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Child profiles - only the parent who created them can access
+    match /childProfiles/{profileId} {
+      allow read, write: if request.auth != null && resource.data.parentId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.parentId == request.auth.uid;
+      allow read, write: if request.auth != null && isAdmin();
+    }
+    
+    // Quests - only the parent who created them can access
+    match /quests/{questId} {
+      allow read, write: if request.auth != null && resource.data.parentId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.parentId == request.auth.uid;
+      allow read, write: if request.auth != null && isAdmin();
+    }
+    
+    // Rewards - only the parent who created them can access
+    match /rewards/{rewardId} {
+      allow read, write: if request.auth != null && resource.data.parentId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.parentId == request.auth.uid;
+      allow read, write: if request.auth != null && isAdmin();
+    }
+    
+    // Feedback reports - users can create their own, admins can read all
+    match /feedbackReports/{reportId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write, update: if request.auth != null && isAdmin();
+    }
+    
+    // Invitations - only admins can manage
+    match /invitations/{invitationId} {
+      allow create, read, write, update, delete: if request.auth != null && isAdmin();
+    }
+    
+    // User activity tracking - users can only track their own activity
+    match /userActivity/{userId} {
+      allow create, read, write, update: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && isAdmin();
+    }
+    
+    // Admin-only collections
+    match /adminLogs/{logId} {
+      allow create, read, write, update, delete: if request.auth != null && isAdmin();
+    }
+  }
+}
