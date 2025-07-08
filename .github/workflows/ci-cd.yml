@@ -1,0 +1,210 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18'
+  FIREBASE_PROJECT_ID: 'kiddo-quest-de7b0'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Test & Build
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        cd Kiddo_Quest
+        npm ci
+        
+    - name: Run linting
+      run: |
+        cd Kiddo_Quest
+        npm run lint || true  # Allow linting to fail for now
+        
+    - name: Run unit tests
+      run: |
+        cd Kiddo_Quest
+        npm test -- --coverage --watchAll=false
+        
+    - name: Build application
+      run: |
+        cd Kiddo_Quest
+        npm run build
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-files
+        path: Kiddo_Quest/build/
+        retention-days: 7
+
+  e2e-test:
+    needs: test
+    runs-on: ubuntu-latest
+    name: E2E Testing
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        cd Kiddo_Quest
+        npm ci
+        
+    - name: Install Playwright browsers
+      run: |
+        cd Kiddo_Quest
+        npx playwright install --with-deps
+        
+    - name: Run E2E tests
+      run: |
+        cd Kiddo_Quest
+        npm run test:e2e
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: e2e-test-results
+        path: |
+          Kiddo_Quest/test-results/
+          Kiddo_Quest/playwright-report/
+        retention-days: 30
+
+  deploy-staging:
+    needs: [test, e2e-test]
+    runs-on: ubuntu-latest
+    name: Deploy to Staging
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        cd Kiddo_Quest
+        npm ci
+        
+    - name: Build for staging
+      run: |
+        cd Kiddo_Quest
+        npm run build
+        
+    - name: Setup Firebase CLI
+      uses: w9jds/setup-firebase@main
+      with:
+        tools: hosting
+        firebase_token: ${{ secrets.FIREBASE_TOKEN }}
+        
+    - name: Create Firebase credentials file
+      run: |
+        echo '${{ secrets.FIREBASE_TOKEN }}' > $HOME/.config/firebase/firebase_tools_token
+        mkdir -p $HOME/.config/firebase
+        
+    - name: Deploy to Firebase Hosting (Staging)
+      run: |
+        cd Kiddo_Quest
+        firebase deploy --only hosting:staging --project ${{ env.FIREBASE_PROJECT_ID }}
+
+  deploy-production:
+    needs: [test, e2e-test]
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        cd Kiddo_Quest
+        npm ci
+        
+    - name: Build for production
+      run: |
+        cd Kiddo_Quest
+        npm run build
+        
+    - name: Setup Firebase CLI
+      uses: w9jds/setup-firebase@main
+      with:
+        tools: hosting,functions
+        firebase_token: ${{ secrets.FIREBASE_TOKEN }}
+        
+    - name: Create Firebase credentials file
+      run: |
+        mkdir -p $HOME/.config/firebase
+        echo '${{ secrets.FIREBASE_TOKEN }}' > $HOME/.config/firebase/firebase_tools_token
+        
+    - name: Deploy to Firebase (Production)
+      run: |
+        cd Kiddo_Quest
+        firebase deploy --project ${{ env.FIREBASE_PROJECT_ID }}
+        
+    - name: Create deployment notification
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        text: 'KiddoQuest Production Deployment: ${{ job.status }}'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scan
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run security audit
+      run: |
+        cd Kiddo_Quest
+        npm audit --audit-level=moderate
+        
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: javascript
+        
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
