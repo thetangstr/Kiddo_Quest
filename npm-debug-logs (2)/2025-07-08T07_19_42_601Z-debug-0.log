@@ -1,0 +1,19 @@
+0 verbose cli /opt/hostedtoolcache/node/20.19.2/x64/bin/node /opt/hostedtoolcache/node/20.19.2/x64/bin/npm
+1 info using npm@10.8.2
+2 info using node@v20.19.2
+3 silly config load:file:/opt/hostedtoolcache/node/20.19.2/x64/lib/node_modules/npm/npmrc
+4 silly config load:file:/home/runner/work/Kiddo_Quest/Kiddo_Quest/Kiddo_Quest/.npmrc
+5 silly config load:file:/home/runner/.npmrc
+6 silly config load:file:/opt/hostedtoolcache/node/20.19.2/x64/etc/npmrc
+7 verbose title npm cache clean
+8 verbose argv "cache" "clean" "--force"
+9 verbose logfile logs-max:10 dir:/home/runner/.npm/_logs/2025-07-08T07_19_42_601Z-
+10 verbose logfile /home/runner/.npm/_logs/2025-07-08T07_19_42_601Z-debug-0.log
+11 warn using --force Recommended protections disabled.
+12 silly logfile done cleaning log files
+13 verbose cwd /home/runner/work/Kiddo_Quest/Kiddo_Quest/Kiddo_Quest
+14 verbose os Linux 6.11.0-1015-azure
+15 verbose node v20.19.2
+16 verbose npm  v10.8.2
+17 verbose exit 0
+18 info ok

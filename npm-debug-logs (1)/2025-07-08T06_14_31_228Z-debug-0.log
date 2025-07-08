@@ -1,0 +1,37 @@
+0 verbose cli /opt/hostedtoolcache/node/18.20.8/x64/bin/node /opt/hostedtoolcache/node/18.20.8/x64/bin/npm
+1 info using npm@10.8.2
+2 info using node@v18.20.8
+3 silly config load:file:/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/npmrc
+4 silly config load:file:/home/runner/work/Kiddo_Quest/Kiddo_Quest/Kiddo_Quest/.npmrc
+5 silly config load:file:/home/runner/.npmrc
+6 silly config load:file:/opt/hostedtoolcache/node/18.20.8/x64/etc/npmrc
+7 verbose title npm run lint
+8 verbose argv "run" "lint"
+9 verbose logfile logs-max:10 dir:/home/runner/.npm/_logs/2025-07-08T06_14_31_228Z-
+10 verbose logfile /home/runner/.npm/_logs/2025-07-08T06_14_31_228Z-debug-0.log
+11 silly logfile done cleaning log files
+12 verbose stack Error: Missing script: "lint"
+12 verbose stack
+12 verbose stack Did you mean this?
+12 verbose stack   npm link # Symlink a package folder
+12 verbose stack
+12 verbose stack To see a list of scripts, run:
+12 verbose stack   npm run
+12 verbose stack     at #run (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/commands/run-script.js:110:13)
+12 verbose stack     at async RunScript.exec (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/commands/run-script.js:39:7)
+12 verbose stack     at async Npm.exec (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/npm.js:207:9)
+12 verbose stack     at async module.exports (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/cli/entry.js:74:5)
+13 error Missing script: "lint"
+13 error
+13 error Did you mean this?
+13 error   npm link # Symlink a package folder
+13 error
+13 error To see a list of scripts, run:
+13 error   npm run
+14 verbose cwd /home/runner/work/Kiddo_Quest/Kiddo_Quest/Kiddo_Quest
+15 verbose os Linux 6.11.0-1015-azure
+16 verbose node v18.20.8
+17 verbose npm  v10.8.2
+18 verbose exit 1
+19 verbose code 1
+20 error A complete log of this run can be found in: /home/runner/.npm/_logs/2025-07-08T06_14_31_228Z-debug-0.log

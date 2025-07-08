@@ -1,0 +1,75 @@
+0 verbose cli /opt/hostedtoolcache/node/18.20.8/x64/bin/node /opt/hostedtoolcache/node/18.20.8/x64/bin/npm
+1 info using npm@10.8.2
+2 info using node@v18.20.8
+3 silly config load:file:/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/npmrc
+4 silly config load:file:/home/runner/work/Kiddo_Quest/Kiddo_Quest/Kiddo_Quest/.npmrc
+5 silly config load:file:/home/runner/.npmrc
+6 silly config load:file:/opt/hostedtoolcache/node/18.20.8/x64/etc/npmrc
+7 verbose title npm ci
+8 verbose argv "ci" "--loglevel" "verbose"
+9 verbose logfile logs-max:10 dir:/home/runner/.npm/_logs/2025-07-08T06_05_57_150Z-
+10 verbose logfile /home/runner/.npm/_logs/2025-07-08T06_05_57_150Z-debug-0.log
+11 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+12 silly logfile done cleaning log files
+13 verbose loadVirtual Error: loadVirtual requires existing shrinkwrap file
+13 verbose loadVirtual     at Arborist.loadVirtual (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/load-virtual.js:51:18)
+13 verbose loadVirtual     at async CI.exec (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/commands/ci.js:49:5)
+13 verbose loadVirtual     at async Npm.exec (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/npm.js:207:9)
+13 verbose loadVirtual     at async module.exports (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/cli/entry.js:74:5)
+14 verbose stack Error: 
+14 verbose stack The `npm ci` command can only install with an existing package-lock.json or
+14 verbose stack npm-shrinkwrap.json with lockfileVersion >= 1. Run an install with npm@5 or
+14 verbose stack later to generate a package-lock.json file, then try again.
+14 verbose stack
+14 verbose stack Clean install a project
+14 verbose stack
+14 verbose stack Usage:
+14 verbose stack npm ci
+14 verbose stack
+14 verbose stack Options:
+14 verbose stack [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+14 verbose stack [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+14 verbose stack [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+14 verbose stack [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]
+14 verbose stack [--no-bin-links] [--no-fund] [--dry-run]
+14 verbose stack [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+14 verbose stack [-ws|--workspaces] [--include-workspace-root] [--install-links]
+14 verbose stack
+14 verbose stack aliases: clean-install, ic, install-clean, isntall-clean
+14 verbose stack
+14 verbose stack Run "npm help ci" for more info
+14 verbose stack     at CI.usageError (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/base-cmd.js:109:26)
+14 verbose stack     at /opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/commands/ci.js:55:18
+14 verbose stack     at async CI.exec (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/commands/ci.js:49:5)
+14 verbose stack     at async Npm.exec (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/npm.js:207:9)
+14 verbose stack     at async module.exports (/opt/hostedtoolcache/node/18.20.8/x64/lib/node_modules/npm/lib/cli/entry.js:74:5)
+15 error code EUSAGE
+16 error
+16 error The `npm ci` command can only install with an existing package-lock.json or
+16 error npm-shrinkwrap.json with lockfileVersion >= 1. Run an install with npm@5 or
+16 error later to generate a package-lock.json file, then try again.
+16 error
+16 error Clean install a project
+16 error
+16 error Usage:
+16 error npm ci
+16 error
+16 error Options:
+16 error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+16 error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+16 error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+16 error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]
+16 error [--no-bin-links] [--no-fund] [--dry-run]
+16 error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+16 error [-ws|--workspaces] [--include-workspace-root] [--install-links]
+16 error
+16 error aliases: clean-install, ic, install-clean, isntall-clean
+16 error
+16 error Run "npm help ci" for more info
+17 verbose cwd /home/runner/work/Kiddo_Quest/Kiddo_Quest/Kiddo_Quest
+18 verbose os Linux 6.11.0-1015-azure
+19 verbose node v18.20.8
+20 verbose npm  v10.8.2
+21 verbose exit 1
+22 verbose code 1
+23 error A complete log of this run can be found in: /home/runner/.npm/_logs/2025-07-08T06_05_57_150Z-debug-0.log
