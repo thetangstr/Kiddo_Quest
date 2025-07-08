@@ -24,10 +24,24 @@ jobs:
       with:
         node-version: ${{ env.NODE_VERSION }}
     
+    - name: Debug repository structure
+      run: |
+        echo "=== Repository Root ==="
+        ls -la
+        echo "=== Kiddo_Quest Directory ==="
+        ls -la Kiddo_Quest/
+        echo "=== Package files ==="
+        find . -name "package*.json" -type f
+        
     - name: Install dependencies
       run: |
         cd Kiddo_Quest
-        npm ci
+        echo "=== Current directory ==="
+        pwd
+        echo "=== Package.json content ==="
+        cat package.json | head -20
+        echo "=== Installing dependencies ==="
+        npm ci --verbose
         
     - name: Run linting
       run: |
@@ -49,6 +63,14 @@ jobs:
       with:
         name: build-files
         path: Kiddo_Quest/build/
+        retention-days: 7
+        
+    - name: Upload npm debug logs
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: npm-debug-logs
+        path: /home/runner/.npm/_logs/
         retention-days: 7
 
   e2e-test:
