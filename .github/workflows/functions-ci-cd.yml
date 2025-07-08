@@ -31,7 +31,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd Kiddo_Quest/functions
-        npm ci
+        npm install
         
     - name: Run linting
       run: |
@@ -71,7 +71,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd Kiddo_Quest/functions
-        npm ci
+        npm install
         
     - name: Setup Firebase CLI
       uses: w9jds/setup-firebase@main
@@ -103,7 +103,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd Kiddo_Quest/functions
-        npm ci
+        npm install
         
     - name: Setup Firebase CLI
       uses: w9jds/setup-firebase@main

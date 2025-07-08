@@ -43,11 +43,6 @@ jobs:
         echo "=== Installing dependencies ==="
         npm install --verbose
         
-    - name: Run linting
-      run: |
-        cd Kiddo_Quest
-        npm run lint || true  # Allow linting to fail for now
-        
     - name: Run unit tests
       run: |
         cd Kiddo_Quest

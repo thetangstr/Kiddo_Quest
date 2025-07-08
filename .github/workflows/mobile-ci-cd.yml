@@ -31,7 +31,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd KiddoQuest_mobile
-        npm ci
+        npm install
         
     - name: Run TypeScript check
       run: |
@@ -83,7 +83,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd KiddoQuest_mobile
-        npm ci
+        npm install
         
     - name: Install Playwright browsers
       run: |
@@ -123,7 +123,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd KiddoQuest_mobile
-        npm ci
+        npm install
         
     - name: Setup Expo CLI
       uses: expo/expo-github-action@v8
@@ -162,7 +162,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd KiddoQuest_mobile
-        npm ci
+        npm install
         
     - name: Setup Expo CLI
       uses: expo/expo-github-action@v8
