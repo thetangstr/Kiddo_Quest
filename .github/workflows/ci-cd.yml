@@ -41,7 +41,13 @@ jobs:
         echo "=== Package.json content ==="
         cat package.json | head -20
         echo "=== Installing dependencies ==="
+        npm cache clean --force
+        rm -rf node_modules package-lock.json
         npm install --verbose
+        echo "=== Checking if react-router-dom was installed ==="
+        ls -la node_modules/react-router-dom || echo "react-router-dom not found in node_modules"
+        echo "=== Listing all installed packages ==="
+        npm list --depth=0 | grep react
         
     - name: Run unit tests
       run: |
