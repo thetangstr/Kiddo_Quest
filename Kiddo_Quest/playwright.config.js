@@ -7,7 +7,7 @@ const { defineConfig, devices } = require('@playwright/test');
 module.exports = defineConfig({
   testDir: './tests',
   /* Maximum time one test can run for. */
-  timeout: 30 * 1000,
+  timeout: process.env.CI ? 15 * 1000 : 30 * 1000,
   expect: {
     /**
      * Maximum time expect() should wait for the condition to be met.
