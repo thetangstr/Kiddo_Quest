@@ -11,6 +11,7 @@ const ParentDashboard = () => {
     childProfiles, 
     quests,
     rewards,
+    questCompletions,
     navigateTo, 
     logout, 
     isLoadingData,
@@ -187,45 +188,93 @@ const ParentDashboard = () => {
       </section>
       
       {/* Pending Verification Section */}
-      {pendingQuests.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center mb-4">
-            <Shield className="mr-2" />
-            <h2 className="text-xl font-semibold">Quests Pending Verification</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pendingQuests.map(quest => {
-              const child = childProfiles.find(c => c.id === quest.claimedBy);
+      {(() => {
+        // Get pending one-time quests
+        const pendingOneTimeQuests = pendingQuests;
+        
+        // Get pending daily quest completions
+        const pendingDailyCompletions = questCompletions.filter(
+          completion => completion.status === 'pending_verification'
+        );
+        
+        const totalPending = pendingOneTimeQuests.length + pendingDailyCompletions.length;
+        
+        if (totalPending === 0) return null;
+        
+        return (
+          <section className="mb-8">
+            <div className="flex items-center mb-4">
+              <Shield className="mr-2" />
+              <h2 className="text-xl font-semibold">Quests Pending Verification</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* One-time quests */}
+              {pendingOneTimeQuests.map(quest => {
+                const child = childProfiles.find(c => c.id === quest.claimedBy);
+                
+                return (
+                  <Card key={quest.id} className="p-6">
+                    <div className="flex items-start mb-4">
+                      <div className="mr-4 text-indigo-600">
+                        {renderLucideIcon(quest.iconName || 'CheckCircle', { size: 24 })}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-medium">{quest.title}</h3>
+                        <p className="text-sm text-gray-600 mb-2">{quest.description}</p>
+                        <p className="text-sm text-indigo-600 font-medium">
+                          {quest.xp} XP • Claimed by {child?.name || 'Unknown'}
+                        </p>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="success" 
+                      icon={CheckCircle} 
+                      className="w-full"
+                      onClick={() => approveQuest(quest.id)}
+                    >
+                      Approve Completion
+                    </Button>
+                  </Card>
+                );
+              })}
               
-              return (
-                <Card key={quest.id} className="p-6">
-                  <div className="flex items-start mb-4">
-                    <div className="mr-4 text-indigo-600">
-                      {renderLucideIcon(quest.iconName || 'CheckCircle', { size: 24 })}
+              {/* Daily quest completions */}
+              {pendingDailyCompletions.map(completion => {
+                const child = childProfiles.find(c => c.id === completion.childId);
+                
+                return (
+                  <Card key={completion.id} className="p-6">
+                    <div className="flex items-start mb-4">
+                      <div className="mr-4 text-indigo-600">
+                        {renderLucideIcon('CheckCircle', { size: 24 })}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-medium">{completion.questTitle}</h3>
+                        <p className="text-sm text-gray-600 mb-2">Daily Quest</p>
+                        <p className="text-sm text-indigo-600 font-medium">
+                          {completion.xp} XP • Completed by {child?.name || 'Unknown'}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(completion.completedDate.toDate()).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-medium">{quest.title}</h3>
-                      <p className="text-sm text-gray-600 mb-2">{quest.description}</p>
-                      <p className="text-sm text-indigo-600 font-medium">
-                        {quest.xp} XP • Claimed by {child?.name || 'Unknown'}
-                      </p>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="success" 
-                    icon={CheckCircle} 
-                    className="w-full"
-                    onClick={() => approveQuest(quest.id)}
-                  >
-                    Approve Completion
-                  </Button>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-      )}
+                    <Button 
+                      variant="success" 
+                      icon={CheckCircle} 
+                      className="w-full"
+                      onClick={() => approveQuest(completion.questId, completion.id)}
+                    >
+                      Approve Completion
+                    </Button>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
       
       {/* Management Buttons */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">

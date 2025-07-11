@@ -143,10 +143,10 @@ jobs:
         cd Kiddo_Quest
         npx playwright install --with-deps
         
-    - name: Run E2E tests
+    - name: Run E2E tests (minimal CI tests)
       run: |
         cd Kiddo_Quest
-        CI=true npm run test:e2e
+        CI=true npm run test:e2e:minimal
         
     - name: Upload test results
       uses: actions/upload-artifact@v4

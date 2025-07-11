@@ -22,6 +22,7 @@ const ChildDashboard = ({ onViewChange }) => {
     childProfiles, 
     quests,
     rewards,
+    questCompletions,
     selectedChildIdForDashboard,
     claimQuest,
     claimReward,
@@ -56,15 +57,47 @@ const ChildDashboard = ({ onViewChange }) => {
   const animationClasses = accessSettings.reducedMotion ? 'transition-none transform-none' : 'transition-all duration-300';
   
   // Filter quests and rewards for this child
-  const availableQuests = quests.filter(quest => 
-    quest.status === 'new' && 
-    quest.assignedTo?.includes(selectedChildIdForDashboard)
-  );
+  const availableQuests = quests.filter(quest => {
+    // Check if quest is new
+    if (quest.status !== 'new') return false;
+    
+    // Check if quest is assigned to this child (or no assignment means available to all)
+    const isAssignedToChild = !quest.assignedTo || quest.assignedTo.length === 0 || quest.assignedTo.includes(selectedChildIdForDashboard);
+    if (!isAssignedToChild) return false;
+    
+    // For daily quests, check if already completed today
+    if (quest.type === 'recurring' && quest.frequency === 'daily') {
+      const completedToday = questCompletions.some(completion => 
+        completion.questId === quest.id && 
+        completion.childId === selectedChildIdForDashboard
+      );
+      return !completedToday;
+    }
+    
+    return true;
+  });
   
-  const pendingQuests = quests.filter(quest => 
+  // Get pending quests including both one-time quests and daily quest completions
+  const pendingOneTimeQuests = quests.filter(quest => 
     quest.status === 'pending_verification' && 
     quest.claimedBy === selectedChildIdForDashboard
   );
+  
+  const pendingDailyQuests = questCompletions
+    .filter(completion => 
+      completion.childId === selectedChildIdForDashboard && 
+      completion.status === 'pending_verification'
+    )
+    .map(completion => ({
+      id: completion.id,
+      title: completion.questTitle,
+      xp: completion.xp,
+      type: 'recurring',
+      frequency: 'daily',
+      isCompletion: true // Flag to identify this is a completion record
+    }));
+  
+  const pendingQuests = [...pendingOneTimeQuests, ...pendingDailyQuests];
   
   const availableRewards = rewards.filter(reward => 
     reward.status === 'available' && 
@@ -128,29 +161,25 @@ const ChildDashboard = ({ onViewChange }) => {
   const handleClaimQuest = async (questId) => {
     if (!selectedChildIdForDashboard) return;
     
-    const success = await claimQuest(questId, selectedChildIdForDashboard);
+    const result = await claimQuest(questId, selectedChildIdForDashboard);
     
-    if (success) {
-      setNotification({
-        type: 'success',
-        message: 'Quest claimed! Waiting for parent verification.'
-      });
-      
-      // Clear notification after 3 seconds
-      setTimeout(() => {
-        setNotification(null);
-      }, 3000);
-    } else {
-      setNotification({
-        type: 'error',
-        message: 'Failed to claim quest. Please try again.'
-      });
-      
-      // Clear notification after 3 seconds
-      setTimeout(() => {
-        setNotification(null);
-      }, 3000);
-    }
+    // Handle both old boolean return and new object return
+    const success = typeof result === 'boolean' ? result : result.success;
+    const message = typeof result === 'object' && result.message 
+      ? result.message 
+      : success 
+        ? 'Quest claimed! Waiting for parent verification.' 
+        : 'Failed to claim quest. Please try again.';
+    
+    setNotification({
+      type: success ? 'success' : 'error',
+      message: message
+    });
+    
+    // Clear notification after 3 seconds
+    setTimeout(() => {
+      setNotification(null);
+    }, 3000);
   };
   
   // Handle reward claiming

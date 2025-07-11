@@ -36,6 +36,7 @@ const useKiddoQuestStore = create((set, get) => ({
   childProfiles: [], 
   quests: [],
   rewards: [],
+  questCompletions: [], // Track daily quest completions
   
   // --- UI State ---
   currentView: 'login', 
@@ -635,10 +636,25 @@ const useKiddoQuestStore = create((set, get) => ({
         ...doc.data()
       }));
       
+      // Fetch today's quest completions
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const completionsQuery = query(
+        collection(db, 'questCompletions'),
+        where('parentId', '==', parentId),
+        where('completedDate', '>=', today)
+      );
+      const completionsSnap = await getDocs(completionsQuery);
+      const fetchedCompletions = completionsSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
       set({ 
         childProfiles: fetchedChildProfiles,
         quests: fetchedQuests,
         rewards: fetchedRewards,
+        questCompletions: fetchedCompletions,
         isLoadingData: false
       });
       
@@ -1048,109 +1064,198 @@ const useKiddoQuestStore = create((set, get) => ({
     set({ isLoadingData: true });
     
     try {
-      const questRef = doc(db, 'quests', questId);
+      const quest = get().quests.find(q => q.id === questId);
+      if (!quest) {
+        set({ isLoadingData: false });
+        return false;
+      }
       
-      // Update quest status in Firestore
-      await updateDoc(questRef, {
-        status: 'pending_verification',
-        claimedBy: childId,
-        claimedAt: serverTimestamp()
-      });
-      
-      // Update local state
-      set(state => ({
-        quests: state.quests.map(quest => 
-          quest.id === questId 
-            ? { 
-                ...quest, 
-                status: 'pending_verification', 
-                claimedBy: childId,
-                claimedAt: new Date().toISOString()
-              } 
-            : quest
-        ),
-        isLoadingData: false
-      }));
-      
-      return true;
+      // For daily quests, create a completion record instead of marking the quest as claimed
+      if (quest.type === 'recurring' && quest.frequency === 'daily') {
+        // Check if child already completed this quest today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const completionQuery = query(
+          collection(db, 'questCompletions'),
+          where('questId', '==', questId),
+          where('childId', '==', childId),
+          where('completedDate', '>=', today)
+        );
+        
+        const completionSnapshot = await getDocs(completionQuery);
+        if (!completionSnapshot.empty) {
+          set({ isLoadingData: false });
+          return { success: false, message: 'You have already completed this quest today!' };
+        }
+        
+        // Create a completion record
+        await addDoc(collection(db, 'questCompletions'), {
+          questId,
+          childId,
+          questTitle: quest.title,
+          xp: quest.xp,
+          status: 'pending_verification',
+          claimedAt: serverTimestamp(),
+          completedDate: serverTimestamp(),
+          parentId: quest.parentId
+        });
+        
+        set({ isLoadingData: false });
+        return { success: true, message: 'Daily quest claimed!' };
+      } else {
+        // For one-time quests, use the original logic
+        const questRef = doc(db, 'quests', questId);
+        
+        // Update quest status in Firestore
+        await updateDoc(questRef, {
+          status: 'pending_verification',
+          claimedBy: childId,
+          claimedAt: serverTimestamp()
+        });
+        
+        // Update local state
+        set(state => ({
+          quests: state.quests.map(quest => 
+            quest.id === questId 
+              ? { 
+                  ...quest, 
+                  status: 'pending_verification', 
+                  claimedBy: childId,
+                  claimedAt: new Date().toISOString()
+                } 
+              : quest
+          ),
+          isLoadingData: false
+        }));
+        
+        return { success: true, message: 'Quest claimed!' };
+      }
     } catch (error) {
       console.error("Error claiming quest:", error);
       set({ isLoadingData: false });
-      return false;
+      return { success: false, message: 'Failed to claim quest' };
     }
   },
   
-  approveQuest: async (questId) => {
+  approveQuest: async (questId, completionId = null) => {
     set({ isLoadingData: true });
     
     try {
-      // Get the quest to approve
-      const quest = get().quests.find(q => q.id === questId);
-      if (!quest || !quest.claimedBy) {
-        set({ isLoadingData: false });
-        return false;
-      }
-      
-      // Get the child who claimed the quest
-      const childProfile = get().childProfiles.find(child => child.id === quest.claimedBy);
-      if (!childProfile) {
-        set({ isLoadingData: false });
-        return false;
-      }
-      
-      // Update quest status in Firestore
-      await updateDoc(doc(db, 'quests', questId), {
-        status: 'completed',
-        completedAt: serverTimestamp()
-      });
-      
-      // Update child XP in Firestore
-      const newXP = (childProfile.xp || 0) + quest.xp;
-      await updateDoc(doc(db, 'childProfiles', childProfile.id), {
-        xp: newXP,
-        updatedAt: serverTimestamp()
-      });
-      
-      // Update local state
-      set(state => ({
-        quests: state.quests.map(q => 
-          q.id === questId 
-            ? { ...q, status: 'completed', completedAt: new Date().toISOString() } 
-            : q
-        ),
-        childProfiles: state.childProfiles.map(child => 
-          child.id === childProfile.id 
-            ? { ...child, xp: newXP } 
-            : child
-        ),
-        isLoadingData: false
-      }));
-      
-      // If quest is recurring, create a new instance
-      if (quest.type === 'recurring') {
-        const { id, status, claimedBy, claimedAt, completedAt, ...recurringQuestData } = quest;
+      // If completionId is provided, we're approving a daily quest completion
+      if (completionId) {
+        // Get the completion record
+        const completion = get().questCompletions.find(c => c.id === completionId);
+        if (!completion) {
+          set({ isLoadingData: false });
+          return false;
+        }
         
-        // Add a new quest instance to Firestore
-        const newQuestRef = await addDoc(collection(db, 'quests'), {
-          ...recurringQuestData,
-          status: 'new',
-          createdAt: serverTimestamp()
+        // Get the child who completed the quest
+        const childProfile = get().childProfiles.find(child => child.id === completion.childId);
+        if (!childProfile) {
+          set({ isLoadingData: false });
+          return false;
+        }
+        
+        // Update completion status in Firestore
+        await updateDoc(doc(db, 'questCompletions', completionId), {
+          status: 'approved',
+          approvedAt: serverTimestamp()
         });
         
-        const newQuest = {
-          id: newQuestRef.id,
-          ...recurringQuestData,
-          status: 'new',
-          createdAt: new Date().toISOString()
-        };
+        // Update child XP in Firestore
+        const newXP = (childProfile.xp || 0) + completion.xp;
+        await updateDoc(doc(db, 'childProfiles', childProfile.id), {
+          xp: newXP,
+          updatedAt: serverTimestamp()
+        });
         
-        // Update local state with the new quest
-        set(state => ({ 
-          quests: [...state.quests, newQuest]
+        // Update local state
+        set(state => ({
+          questCompletions: state.questCompletions.map(c => 
+            c.id === completionId 
+              ? { ...c, status: 'approved', approvedAt: new Date().toISOString() } 
+              : c
+          ),
+          childProfiles: state.childProfiles.map(child => 
+            child.id === childProfile.id 
+              ? { ...child, xp: newXP } 
+              : child
+          ),
+          isLoadingData: false
         }));
+        
+        return true;
+      } else {
+        // Handle one-time quests (original logic)
+        const quest = get().quests.find(q => q.id === questId);
+        if (!quest || !quest.claimedBy) {
+          set({ isLoadingData: false });
+          return false;
+        }
+        
+        // Get the child who claimed the quest
+        const childProfile = get().childProfiles.find(child => child.id === quest.claimedBy);
+        if (!childProfile) {
+          set({ isLoadingData: false });
+          return false;
+        }
+        
+        // Update quest status in Firestore
+        await updateDoc(doc(db, 'quests', questId), {
+          status: 'completed',
+          completedAt: serverTimestamp()
+        });
+        
+        // Update child XP in Firestore
+        const newXP = (childProfile.xp || 0) + quest.xp;
+        await updateDoc(doc(db, 'childProfiles', childProfile.id), {
+          xp: newXP,
+          updatedAt: serverTimestamp()
+        });
+        
+        // Update local state
+        set(state => ({
+          quests: state.quests.map(q => 
+            q.id === questId 
+              ? { ...q, status: 'completed', completedAt: new Date().toISOString() } 
+              : q
+          ),
+          childProfiles: state.childProfiles.map(child => 
+            child.id === childProfile.id 
+              ? { ...child, xp: newXP } 
+              : child
+          ),
+          isLoadingData: false
+        }));
+        
+        // If quest is recurring but not daily, create a new instance
+        if (quest.type === 'recurring' && quest.frequency !== 'daily') {
+          const { id, status, claimedBy, claimedAt, completedAt, ...recurringQuestData } = quest;
+          
+          // Add a new quest instance to Firestore
+          const newQuestRef = await addDoc(collection(db, 'quests'), {
+            ...recurringQuestData,
+            status: 'new',
+            createdAt: serverTimestamp()
+          });
+          
+          const newQuest = {
+            id: newQuestRef.id,
+            ...recurringQuestData,
+            status: 'new',
+            createdAt: new Date().toISOString()
+          };
+          
+          // Update local state with the new quest
+          set(state => ({ 
+            quests: [...state.quests, newQuest]
+          }));
+        }
+        
+        return true;
       }
-      
-      return true;
     } catch (error) {
       console.error("Error approving quest:", error);
       set({ isLoadingData: false });
