@@ -1,19 +1,39 @@
 # GitHub Secrets Setup Guide
 
-## Required Secrets for CI/CD Pipeline
+This guide helps you configure GitHub secrets for the multi-environment CI/CD pipeline.
+
+## 🔐 Required Secrets for Beta/Production Pipeline
 
 Go to: https://github.com/thetangstr/Kiddo_Quest/settings/secrets/actions
 
-### 1. FIREBASE_TOKEN
-**To get your Firebase token**:
-1. Run: `firebase login:ci` in your terminal
-2. Copy the generated token
-3. Add it as `FIREBASE_TOKEN` in GitHub secrets
+### 1. FIREBASE_SERVICE_ACCOUNT_PRODUCTION
+**Purpose**: Deploy to production Firebase project (`kiddo-quest-de7b0`)
 
-**Alternative method** (if you're already logged in):
-1. Find your Firebase credentials at: `~/.config/firebase/`
-2. Look for files like `thetangstr_gmail_com_application_default_credentials.json`
-3. Copy the entire JSON content and add as `FIREBASE_TOKEN`
+**To get the service account key**:
+1. Go to [Firebase Console - Production](https://console.firebase.google.com/project/kiddo-quest-de7b0)
+2. Click gear icon → "Project settings"
+3. Go to "Service accounts" tab
+4. Click "Generate new private key"
+5. Download the JSON file
+6. Copy the ENTIRE JSON content and paste as secret value
+
+### 2. FIREBASE_SERVICE_ACCOUNT_BETA
+**Purpose**: Deploy to beta Firebase project (`kiddo-quest-beta`)
+
+**First, create the beta project**:
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Click "Create a project" 
+3. Name it: `kiddo-quest-beta`
+4. Enable the same services as production:
+   - Authentication (Email/Password + Google)
+   - Firestore Database
+   - Cloud Storage  
+   - Cloud Functions
+   - Hosting
+
+**Then get the service account key**:
+1. Follow same steps as production project above
+2. Copy JSON content as `FIREBASE_SERVICE_ACCOUNT_BETA`
 
 ### 2. EXPO_TOKEN (for mobile builds)
 **Method 1 - Via Expo Website**:

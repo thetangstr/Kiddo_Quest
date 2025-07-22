@@ -1,0 +1,178 @@
+name: Promote Beta to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      beta_version:
+        description: 'Beta version/commit to promote (leave empty for latest)'
+        required: false
+        type: string
+      skip_tests:
+        description: 'Skip testing (emergency only)'
+        required: false
+        default: false
+        type: boolean
+      deployment_notes:
+        description: 'Deployment notes'
+        required: true
+        type: string
+
+env:
+  NODE_VERSION: '18'
+  WORKING_DIRECTORY: ./Kiddo_Quest
+
+jobs:
+  validate-promotion:
+    name: Validate Beta Promotion
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.beta_version || 'develop' }}
+    
+    - name: Validate beta environment
+      run: |
+        echo "🔍 Validating beta environment..."
+        curl -f https://kiddo-quest-beta.web.app || {
+          echo "❌ Beta environment not accessible"
+          exit 1
+        }
+        echo "✅ Beta environment validated"
+    
+    - name: Log promotion request
+      run: |
+        echo "🚀 PROMOTION REQUEST"
+        echo "Beta Version: ${{ inputs.beta_version || 'latest' }}"
+        echo "Skip Tests: ${{ inputs.skip_tests }}"
+        echo "Notes: ${{ inputs.deployment_notes }}"
+        echo "Requested by: ${{ github.actor }}"
+
+  test-beta-version:
+    name: Test Beta Version
+    runs-on: ubuntu-latest
+    needs: validate-promotion
+    if: ${{ !inputs.skip_tests }}
+    
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+    - name: Checkout beta version
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.beta_version || 'develop' }}
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: '${{ env.WORKING_DIRECTORY }}/package-lock.json'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run comprehensive tests
+      run: |
+        echo "🧪 Running comprehensive test suite..."
+        npm test -- --coverage --watchAll=false
+        npm run test:e2e:minimal
+    
+    - name: Test production build
+      run: |
+        cp .env.production .env
+        npm run build
+      env:
+        CI: false
+
+  promote-to-production:
+    name: Promote to Production
+    runs-on: ubuntu-latest
+    needs: [validate-promotion, test-beta-version]
+    if: always() && (needs.test-beta-version.result == 'success' || needs.test-beta-version.result == 'skipped')
+    
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    environment:
+      name: production
+      url: https://kiddo-quest-de7b0.web.app
+    
+    steps:
+    - name: Checkout beta version
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.beta_version || 'develop' }}
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: '${{ env.WORKING_DIRECTORY }}/package-lock.json'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build for production
+      run: |
+        cp .env.production .env
+        npm run build
+      env:
+        CI: false
+    
+    - name: Deploy to production
+      uses: FirebaseExtended/action-hosting-deploy@v0
+      with:
+        repoToken: '${{ secrets.GITHUB_TOKEN }}'
+        firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRODUCTION }}'
+        projectId: kiddo-quest-de7b0
+        channelId: live
+        entryPoint: ${{ env.WORKING_DIRECTORY }}
+    
+    - name: Merge to main branch
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git checkout main
+        git merge ${{ inputs.beta_version || 'develop' }} --no-edit
+        git push origin main
+    
+    - name: Create release tag
+      run: |
+        DATE=$(date +"%Y%m%d-%H%M%S")
+        TAG="release-$DATE"
+        git tag -a $TAG -m "Release $TAG: ${{ inputs.deployment_notes }}"
+        git push origin $TAG
+        echo "🏷️ Created release tag: $TAG"
+    
+    - name: Post-deployment validation
+      run: |
+        sleep 30
+        curl -f https://kiddo-quest-de7b0.web.app || exit 1
+        echo "✅ Production promotion successful!"
+
+  notify-promotion:
+    name: Notify Promotion
+    runs-on: ubuntu-latest
+    needs: [promote-to-production]
+    if: always()
+    
+    steps:
+    - name: Notify success
+      if: needs.promote-to-production.result == 'success'
+      run: |
+        echo "🎉 Beta promoted to production successfully!"
+        echo "📝 Notes: ${{ inputs.deployment_notes }}"
+        echo "🌐 URL: https://kiddo-quest-de7b0.web.app"
+    
+    - name: Notify failure
+      if: needs.promote-to-production.result == 'failure'
+      run: |
+        echo "💥 Beta promotion to production failed!"
+        echo "📝 Notes: ${{ inputs.deployment_notes }}"
+        exit 1

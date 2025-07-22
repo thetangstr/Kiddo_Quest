@@ -1,0 +1,212 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deploy to production'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  WORKING_DIRECTORY: ./Kiddo_Quest
+
+jobs:
+  test:
+    name: Production Tests
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'  
+        cache-dependency-path: '${{ env.WORKING_DIRECTORY }}/package-lock.json'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run full test suite
+      run: npm test -- --coverage --watchAll=false
+    
+    - name: Run E2E tests
+      run: npm run test:e2e:minimal
+    
+    - name: Check build integrity
+      run: npm run build
+      env:
+        CI: false
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run security audit
+      run: npm audit --audit-level=moderate
+      continue-on-error: true
+    
+    - name: Check for secrets
+      run: |
+        echo "🔍 Checking for exposed secrets..."
+        if grep -r "REACT_APP_FIREBASE_API_KEY.*=" . --exclude-dir=node_modules --exclude-dir=build; then
+          echo "⚠️ Found potential exposed API keys"
+        else
+          echo "✅ No exposed secrets found"
+        fi
+
+  build-production:
+    name: Build Production
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: '${{ env.WORKING_DIRECTORY }}/package-lock.json'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Copy production environment file
+      run: cp .env.production .env
+    
+    - name: Build for production
+      run: npm run build
+      env:
+        CI: false
+    
+    - name: Upload production build
+      uses: actions/upload-artifact@v3
+      with:
+        name: production-build
+        path: ${{ env.WORKING_DIRECTORY }}/build
+
+  deploy-production:
+    name: Deploy to Production Firebase
+    runs-on: ubuntu-latest
+    needs: [test, security-scan, build-production]
+    
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    
+    environment:
+      name: production
+      url: https://kiddo-quest-de7b0.web.app
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download production build
+      uses: actions/download-artifact@v3
+      with:
+        name: production-build  
+        path: ${{ env.WORKING_DIRECTORY }}/build
+    
+    - name: Deploy to Firebase Production
+      uses: FirebaseExtended/action-hosting-deploy@v0
+      with:
+        repoToken: '${{ secrets.GITHUB_TOKEN }}'
+        firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRODUCTION }}'
+        projectId: kiddo-quest-de7b0
+        channelId: live
+        entryPoint: ${{ env.WORKING_DIRECTORY }}
+
+  post-deployment-tests:
+    name: Production Validation
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    
+    steps:
+    - name: Wait for deployment propagation
+      run: sleep 30
+    
+    - name: Validate production deployment
+      run: |
+        echo "🧪 Running production validation..."
+        
+        # Check if site is accessible
+        curl -f https://kiddo-quest-de7b0.web.app || exit 1
+        
+        # Check if critical pages load
+        curl -f https://kiddo-quest-de7b0.web.app/login || exit 1
+        
+        echo "✅ Production deployment validated!"
+    
+    - name: Create deployment tag
+      if: success()
+      run: |
+        echo "🏷️ Creating deployment tag..."
+        DATE=$(date +"%Y%m%d-%H%M%S")
+        echo "TAG=prod-deploy-$DATE" >> $GITHUB_ENV
+    
+    - name: Tag successful deployment
+      if: success()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const tag = process.env.TAG;
+          await github.rest.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: `refs/tags/${tag}`,
+            sha: context.sha
+          });
+
+  notify-production:
+    name: Notify Production Deployment
+    runs-on: ubuntu-latest
+    needs: [post-deployment-tests]
+    if: always()
+    
+    steps:
+    - name: Notify success
+      if: needs.post-deployment-tests.result == 'success'
+      run: |
+        echo "🚀 Production deployment successful!"
+        echo "🌐 Production URL: https://kiddo-quest-de7b0.web.app"
+    
+    - name: Notify failure
+      if: needs.post-deployment-tests.result == 'failure'
+      run: |
+        echo "💥 Production deployment failed!"
+        exit 1
