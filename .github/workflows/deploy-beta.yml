@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18' # Or your preferred Node.js version
+          node-version: '20' # Firebase CLI v14.11.0 requires Node.js 20+
 
       - name: Install Dependencies
         run: npm ci # 'ci' is generally faster and more reliable for CI environments
