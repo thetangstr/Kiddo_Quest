@@ -1,34 +1,66 @@
 {
-  "hosting": {
-    "site": "kiddo-quest-de7b0",
-    "public": "build",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "/app/**",
-        "destination": "/app.html"
-      }
-    ],
-    "headers": [
-      {
-        "source": "**",
-        "headers": [
-          {
-            "key": "Cross-Origin-Opener-Policy",
-            "value": "same-origin-allow-popups"
-          },
-          {
-            "key": "Cross-Origin-Embedder-Policy",
-            "value": "unsafe-none"
-          }
-        ]
-      }
-    ]
-  },
+  "hosting": [
+    {
+      "target": "production",
+      "public": "build",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "/app/**",
+          "destination": "/app.html"
+        }
+      ],
+      "headers": [
+        {
+          "source": "**",
+          "headers": [
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin-allow-popups"
+            },
+            {
+              "key": "Cross-Origin-Embedder-Policy",
+              "value": "unsafe-none"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": "beta",
+      "public": "build",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "/app/**",
+          "destination": "/app.html"
+        }
+      ],
+      "headers": [
+        {
+          "source": "**",
+          "headers": [
+            {
+              "key": "Cross-Origin-Opener-Policy",
+              "value": "same-origin-allow-popups"
+            },
+            {
+              "key": "Cross-Origin-Embedder-Policy",
+              "value": "unsafe-none"
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
