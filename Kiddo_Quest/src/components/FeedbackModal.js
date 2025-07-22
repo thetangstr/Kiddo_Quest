@@ -23,6 +23,7 @@ export default function FeedbackModal({ open, onClose, user }) {
       
       // Add the document to the collection
       await addDoc(feedbackCollection, {
+        userId: user?.uid || '',
         userEmail: user?.email || '',
         description,
         steps,
