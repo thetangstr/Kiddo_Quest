@@ -6,9 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 KiddoQuest is a family chore management system with multiple deployment targets:
 - **Web Application**: React app with Firebase backend (`Kiddo_Quest/`)
-- **Mobile Application**: React Native/Expo app (`KiddoQuest_mobile/`)
+- **Mobile Application**: React Native/Expo app (`KiddoQuest_mobile/`) - **PRIMARY MOBILE APP**
 - **Marketing Homepage**: Static HTML site (`marketing-homepage/`)
 - **Cloud Functions**: Firebase Functions for backend logic (`Kiddo_Quest/functions/`)
+
+**Note**: The project contains multiple mobile directories (`KiddoQuest_expo/`, `KiddoQuest_expo_web/`) which are template/experimental versions. Use `KiddoQuest_mobile/` for active mobile development.
 
 ## Development Commands
 
@@ -19,6 +21,7 @@ npm start                    # Start development server (port 3000)
 npm run build               # Production build
 npm test                    # Unit tests
 npm run test:e2e           # End-to-end tests with Playwright
+npm run test:e2e:minimal   # Run minimal CI test suite only
 npm run test:e2e:ui        # Interactive E2E tests
 
 # Deployment
@@ -47,6 +50,9 @@ eas submit --platform all                          # Submit to app stores
 ```bash
 npm install               # Install function dependencies
 npm run lint             # Lint functions code
+npm run serve            # Start local Firebase emulator for functions
+npm run shell            # Start Firebase functions shell
+npm run logs             # View function logs
 firebase functions:config:get  # View environment config
 firebase deploy --only functions  # Deploy functions only
 ```
@@ -128,8 +134,10 @@ KiddoQuest_mobile/             # Mobile application
 ### E2E Testing (Web)
 - Playwright tests in `Kiddo_Quest/tests/`
 - Test files named `*.spec.js`
-- Run with `npm run test:e2e`
+- Run with `npm run test:e2e` (all tests) or `npm run test:e2e:minimal` (CI subset)
 - Base URL: `http://localhost:3000`
+- Tests automatically start development server before running
+- Timeout: 30s (development), 15s (CI)
 
 ### Mobile Testing
 - Development builds for device testing
