@@ -46,3 +46,4 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_TOKEN }}'
           projectId: 'kiddo-quest-de7b0'
           target: 'beta'
+          entryPoint: './Kiddo_Quest'
