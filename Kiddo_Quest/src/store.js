@@ -948,15 +948,22 @@ const useKiddoQuestStore = create((set, get) => ({
       // Prepare data for Firestore (remove imageFile which is not needed in Firestore)
       const { imageFile, ...dataToAdd } = rewardData;
       
-      // Add reward to Firestore
-      const rewardRef = await addDoc(collection(db, 'rewards'), {
+      // Prepare reward data, filtering out undefined values
+      const firestoreData = {
         ...dataToAdd,
         parentId,
         status: 'available',
         image: imageUrl,
-        source: dataToAdd.source, // Save Amazon product source if present
         createdAt: serverTimestamp()
-      });
+      };
+      
+      // Only add source if it's defined
+      if (dataToAdd.source !== undefined && dataToAdd.source !== null) {
+        firestoreData.source = dataToAdd.source;
+      }
+
+      // Add reward to Firestore
+      const rewardRef = await addDoc(collection(db, 'rewards'), firestoreData);
       
       const newReward = {
         id: rewardRef.id,
@@ -964,9 +971,13 @@ const useKiddoQuestStore = create((set, get) => ({
         parentId,
         status: 'available',
         image: imageUrl,
-        source: dataToAdd.source, // Include Amazon product source in state
         createdAt: new Date().toISOString()
       };
+      
+      // Only add source to local state if it's defined
+      if (dataToAdd.source !== undefined && dataToAdd.source !== null) {
+        newReward.source = dataToAdd.source;
+      }
       
       set(state => ({ 
         rewards: [...state.rewards, newReward],
