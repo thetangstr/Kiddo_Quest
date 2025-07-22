@@ -1,0 +1,45 @@
+# .github/workflows/deploy-prod.yml
+
+name: Deploy Production to Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main # Trigger this workflow on pushes to the 'main' branch
+
+jobs:
+  build_and_deploy_prod:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Kiddo_Quest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Tests
+        run: npm run test:coverage # Full test suite with coverage
+
+      - name: Run E2E Tests
+        run: npm run test:e2e:minimal # E2E tests to ensure quality
+
+      - name: Build Web App for Production
+        run: npm run build
+        env:
+          CI: false # Treat warnings as warnings, not errors
+
+      - name: Deploy to Firebase Production
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KIDDO_QUEST }}'
+          projectId: 'kiddo-quest-de7b0'
+          target: 'production' # This uses the 'production' target from .firebaserc
