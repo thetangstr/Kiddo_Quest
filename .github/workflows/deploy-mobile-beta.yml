@@ -1,0 +1,84 @@
+# .github/workflows/deploy-mobile-beta.yml
+
+name: Deploy Mobile Beta
+
+on:
+  push:
+    branches:
+      - develop  # Trigger on pushes to develop branch
+    paths:
+      - 'KiddoQuest_mobile/**'  # Only run when mobile code changes
+      - '.github/workflows/deploy-mobile-beta.yml'
+
+jobs:
+  build_and_deploy_mobile_beta:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./KiddoQuest_mobile
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Run Tests
+        run: npm test -- --watchAll=false --passWithNoTests
+
+      - name: Configure EAS Build
+        run: |
+          echo "Configuring EAS for beta builds..."
+          # EAS will use the eas.json configuration
+          
+      - name: Build for iOS (Beta)
+        run: |
+          eas build --platform ios \
+            --profile preview \
+            --non-interactive \
+            --no-wait
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build for Android (Beta)  
+        run: |
+          eas build --platform android \
+            --profile preview \
+            --non-interactive \
+            --no-wait
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Get Build Status
+        run: |
+          echo "Build submitted to EAS. Monitor at:"
+          echo "https://expo.dev/accounts/your-account/projects/KiddoQuest/builds"
+          
+      # Optional: Wait for builds and download artifacts
+      # - name: Wait for iOS Build
+      #   run: eas build:list --platform ios --status finished --limit 1
+      
+      # - name: Wait for Android Build  
+      #   run: eas build:list --platform android --status finished --limit 1
+
+      - name: Summary
+        run: |
+          echo "## Mobile Beta Builds Submitted! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Status" >> $GITHUB_STEP_SUMMARY
+          echo "- iOS Beta: Building on EAS" >> $GITHUB_STEP_SUMMARY
+          echo "- Android Beta: Building on EAS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Monitor builds at: [Expo Dashboard](https://expo.dev)" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,87 @@
+# .github/workflows/deploy-mobile-prod.yml
+
+name: Deploy Mobile Production
+
+on:
+  push:
+    branches:
+      - main  # Trigger on pushes to main branch
+    paths:
+      - 'KiddoQuest_mobile/**'  # Only run when mobile code changes
+      - '.github/workflows/deploy-mobile-prod.yml'
+
+jobs:
+  build_and_deploy_mobile_prod:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./KiddoQuest_mobile
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Run Tests
+        run: npm test -- --watchAll=false --passWithNoTests
+
+      - name: Increment Version
+        run: |
+          # Auto-increment version for production builds
+          npm version patch --no-git-tag-version
+          echo "New version: $(node -p "require('./package.json').version")"
+
+      - name: Build for iOS (Production)
+        run: |
+          eas build --platform ios \
+            --profile production \
+            --non-interactive \
+            --no-wait \
+            --auto-submit
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build for Android (Production)  
+        run: |
+          eas build --platform android \
+            --profile production \
+            --non-interactive \
+            --no-wait \
+            --auto-submit
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Create Release Tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag -a "mobile-v${VERSION}" -m "Mobile Release v${VERSION}"
+          git push origin "mobile-v${VERSION}"
+
+      - name: Summary
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "## Mobile Production Build v${VERSION} 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Status" >> $GITHUB_STEP_SUMMARY
+          echo "- iOS Production: Building & Auto-submitting to App Store Connect" >> $GITHUB_STEP_SUMMARY
+          echo "- Android Production: Building & Auto-submitting to Play Console" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Monitor builds at: [Expo Dashboard](https://expo.dev)" >> $GITHUB_STEP_SUMMARY
+          echo "2. Review in App Store Connect & Google Play Console" >> $GITHUB_STEP_SUMMARY
+          echo "3. Submit for review when ready" >> $GITHUB_STEP_SUMMARY

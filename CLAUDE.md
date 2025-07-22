@@ -181,8 +181,24 @@ KiddoQuest_mobile/             # Mobile application
 
 ## Deployment Process
 
+### Automated CI/CD (GitHub Actions)
+
+#### Web Application
+- **Beta**: Push to `develop` → Auto-deploy to https://kiddo-quest-beta.web.app
+- **Production**: Push to `main` → Auto-deploy to https://kiddo-quest-de7b0.web.app
+
+#### Mobile Application  
+- **Beta**: Push to `develop` → Auto-build & deploy to TestFlight/Play Console (Beta)
+- **Production**: Push to `main` → Auto-build & submit to App Store/Play Store
+
+#### Manual Deployment
 1. **Web**: Run E2E tests → Build → Deploy to Firebase Hosting
 2. **Mobile**: EAS Build → Submit to app stores
 3. **Functions**: Deploy with `firebase deploy --only functions`
 
-Use deployment guides in `DEPLOYMENT_GUIDE.md` and `KiddoQuest_mobile/BUILD_GUIDE.md` for detailed instructions.
+### CI/CD Configuration
+- **Web Workflows**: `.github/workflows/deploy-beta.yml`, `deploy-prod.yml`
+- **Mobile Workflows**: `.github/workflows/deploy-mobile-beta.yml`, `deploy-mobile-prod.yml`
+- **Required Secrets**: `FIREBASE_TOKEN` (service account JSON), `EXPO_TOKEN`
+
+Use deployment guides in `DEPLOYMENT_GUIDE.md`, `KiddoQuest_mobile/BUILD_GUIDE.md`, and `MOBILE_CI_CD_SETUP.md` for detailed instructions.
