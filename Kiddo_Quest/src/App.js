@@ -4,6 +4,7 @@ import useKiddoQuestStore from './store';
 import { LoadingSpinner } from './components/UI';
 import { GuidedTutorial, shouldShowGuidedTutorial } from './components/GuidedTutorial';
 import PinVerification from './components/PinVerification';
+import EnvironmentBanner from './components/EnvironmentBanner';
 
 // Import screens
 import { LoginScreen, RegistrationScreen } from './screens/Auth';
@@ -238,6 +239,9 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen bg-gray-50 font-sans">
+        {/* Environment banner for non-production environments */}
+        <EnvironmentBanner />
+        
         {/* Authentication status marker for testing */}
         {currentUser && !isLoadingAuth && (
           <div id="auth-success-marker" data-testid="auth-success-marker" style={{ display: 'none' }}>
