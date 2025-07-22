@@ -636,19 +636,39 @@ const useKiddoQuestStore = create((set, get) => ({
         ...doc.data()
       }));
       
-      // Fetch today's quest completions
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const completionsQuery = query(
-        collection(db, 'questCompletions'),
-        where('parentId', '==', parentId),
-        where('completedDate', '>=', today)
-      );
-      const completionsSnap = await getDocs(completionsQuery);
-      const fetchedCompletions = completionsSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // Fetch today's quest completions - with fallback while index builds
+      let fetchedCompletions = [];
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const completionsQuery = query(
+          collection(db, 'questCompletions'),
+          where('parentId', '==', parentId),
+          where('completedDate', '>=', today)
+        );
+        const completionsSnap = await getDocs(completionsQuery);
+        fetchedCompletions = completionsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      } catch (indexError) {
+        console.log('Index still building, fetching completions without date filter...');
+        // Fallback: fetch all completions for this parent and filter client-side
+        const fallbackQuery = query(
+          collection(db, 'questCompletions'),
+          where('parentId', '==', parentId)
+        );
+        const fallbackSnap = await getDocs(fallbackQuery);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        fetchedCompletions = fallbackSnap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(completion => {
+            const completedDate = completion.completedDate?.toDate?.() || new Date(completion.completedDate);
+            return completedDate >= today;
+          });
+      }
       
       set({ 
         childProfiles: fetchedChildProfiles,
