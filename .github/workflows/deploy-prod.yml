@@ -47,3 +47,4 @@ jobs:
           projectId: 'kiddo-quest-de7b0'
           target: 'production'
           entryPoint: './Kiddo_Quest'
+          channelId: 'live'
