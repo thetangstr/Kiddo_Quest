@@ -28,6 +28,9 @@ jobs:
       - name: Run Tests
         run: npm test -- --watchAll=false --passWithNoTests # Run tests without coverage for speed
 
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
       - name: Run E2E Tests
         run: npm run test:e2e:minimal # Run minimal E2E tests for speed
 
