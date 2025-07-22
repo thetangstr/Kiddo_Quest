@@ -7,6 +7,9 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_ENVIRONMENT": "development"
+      },
       "ios": {
         "resourceClass": "m-medium"
       },
@@ -16,6 +19,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_ENVIRONMENT": "preview"
+      },
       "ios": {
         "resourceClass": "m-medium"
       },
@@ -24,11 +30,16 @@
       }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_ENVIRONMENT": "production"
+      },
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "autoIncrement": true
       },
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "autoIncrement": true
       }
     }
   },

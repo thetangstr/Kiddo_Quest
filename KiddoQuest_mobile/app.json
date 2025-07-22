@@ -3,6 +3,8 @@
     "name": "KiddoQuest",
     "slug": "kiddoquest",
     "version": "1.0.0",
+    "privacy": "public",
+    "description": "KiddoQuest - A fun and engaging family chore management app that turns everyday tasks into exciting quests for kids.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -19,9 +21,12 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.kiddoquest.app",
       "googleServicesFile": "./GoogleService-Info.plist",
+      "buildNumber": "1",
       "infoPlist": {
         "UIBackgroundModes": ["background-fetch"],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "This app uses the camera to let kids upload photos of completed quests.",
+        "NSPhotoLibraryUsageDescription": "This app accesses your photo library to let kids choose photos for their profiles and quest completions."
       }
     },
     "android": {
@@ -31,9 +36,12 @@
       },
       "package": "com.kiddoquest.app",
       "googleServicesFile": "./google-services.json",
+      "versionCode": 1,
       "permissions": [
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_NETWORK_STATE",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
       ]
     },
     "web": {
