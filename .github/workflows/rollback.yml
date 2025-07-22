@@ -96,15 +96,16 @@ jobs:
       uses: FirebaseExtended/action-hosting-deploy@v0
       with:
         repoToken: '${{ secrets.GITHUB_TOKEN }}'
-        firebaseServiceAccount: ${{ inputs.environment == 'production' && secrets.FIREBASE_SERVICE_ACCOUNT_PRODUCTION || secrets.FIREBASE_SERVICE_ACCOUNT_BETA }}
-        projectId: ${{ inputs.environment == 'production' && 'kiddo-quest-de7b0' || 'kiddo-quest-beta' }}
+        firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+        projectId: kiddo-quest-de7b0
         channelId: live
+        target: ${{ inputs.environment }}
         entryPoint: ${{ env.WORKING_DIRECTORY }}
     
     - name: Verify rollback
       run: |
         sleep 30
-        URL="${{ inputs.environment == 'production' && 'https://kiddo-quest-de7b0.web.app' || 'https://kiddo-quest-beta.web.app' }}"
+        URL="${{ inputs.environment == 'production' && 'https://kiddo-quest-de7b0.web.app' || 'https://beta-kiddo-quest.web.app' }}"
         curl -f $URL || exit 1
         echo "✅ Rollback to ${{ inputs.tag }} completed successfully"
     

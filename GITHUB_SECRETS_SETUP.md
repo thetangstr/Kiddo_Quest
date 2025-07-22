@@ -6,34 +6,20 @@ This guide helps you configure GitHub secrets for the multi-environment CI/CD pi
 
 Go to: https://github.com/thetangstr/Kiddo_Quest/settings/secrets/actions
 
-### 1. FIREBASE_SERVICE_ACCOUNT_PRODUCTION
-**Purpose**: Deploy to production Firebase project (`kiddo-quest-de7b0`)
+### 1. FIREBASE_SERVICE_ACCOUNT
+**Purpose**: Deploy to both beta and production hosting targets on the same Firebase project
 
 **To get the service account key**:
-1. Go to [Firebase Console - Production](https://console.firebase.google.com/project/kiddo-quest-de7b0)
+1. Go to [Firebase Console](https://console.firebase.google.com/project/kiddo-quest-de7b0)
 2. Click gear icon → "Project settings"
 3. Go to "Service accounts" tab
 4. Click "Generate new private key"
 5. Download the JSON file
 6. Copy the ENTIRE JSON content and paste as secret value
 
-### 2. FIREBASE_SERVICE_ACCOUNT_BETA
-**Purpose**: Deploy to beta Firebase project (`kiddo-quest-beta`)
-
-**First, create the beta project**:
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Click "Create a project" 
-3. Name it: `kiddo-quest-beta`
-4. Enable the same services as production:
-   - Authentication (Email/Password + Google)
-   - Firestore Database
-   - Cloud Storage  
-   - Cloud Functions
-   - Hosting
-
-**Then get the service account key**:
-1. Follow same steps as production project above
-2. Copy JSON content as `FIREBASE_SERVICE_ACCOUNT_BETA`
+**Note**: We use a single Firebase project with multiple hosting targets:
+- **Production target**: `kiddo-quest-de7b0` → https://kiddo-quest-de7b0.web.app
+- **Beta target**: `beta-kiddo-quest` → https://beta-kiddo-quest.web.app
 
 ### 2. EXPO_TOKEN (for mobile builds)
 **Method 1 - Via Expo Website**:

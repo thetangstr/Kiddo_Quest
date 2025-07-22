@@ -109,19 +109,20 @@ jobs:
         name: beta-build
         path: ${{ env.WORKING_DIRECTORY }}/build
     
-    - name: Deploy to Firebase Beta
+    - name: Deploy to Firebase Beta Target
       uses: FirebaseExtended/action-hosting-deploy@v0
       with:
         repoToken: '${{ secrets.GITHUB_TOKEN }}'
-        firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_BETA }}'
-        projectId: kiddo-quest-beta
+        firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+        projectId: kiddo-quest-de7b0
         channelId: live
+        target: beta
         entryPoint: ${{ env.WORKING_DIRECTORY }}
     
     - name: Post deployment tests
       run: |
         echo "🧪 Running post-deployment validation..."
-        curl -f https://kiddo-quest-beta.web.app || exit 1
+        curl -f https://beta-kiddo-quest.web.app || exit 1
         echo "✅ Beta deployment successful!"
 
   notify:
@@ -135,7 +136,7 @@ jobs:
       if: needs.deploy-beta.result == 'success'
       run: |
         echo "✅ Beta deployment successful!"
-        echo "🌐 Beta URL: https://kiddo-quest-beta.web.app"
+        echo "🌐 Beta URL: https://beta-kiddo-quest.web.app"
     
     - name: Notify failure  
       if: needs.deploy-beta.result == 'failure'

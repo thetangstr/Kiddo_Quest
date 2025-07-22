@@ -35,8 +35,8 @@ jobs:
     - name: Validate beta environment
       run: |
         echo "🔍 Validating beta environment..."
-        curl -f https://kiddo-quest-beta.web.app || {
-          echo "❌ Beta environment not accessible"
+        curl -f https://beta-kiddo-quest.web.app || {
+          echo "❌ Beta environment not accessible"  
           exit 1
         }
         echo "✅ Beta environment validated"
@@ -129,9 +129,10 @@ jobs:
       uses: FirebaseExtended/action-hosting-deploy@v0
       with:
         repoToken: '${{ secrets.GITHUB_TOKEN }}'
-        firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRODUCTION }}'
+        firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
         projectId: kiddo-quest-de7b0
         channelId: live
+        target: production
         entryPoint: ${{ env.WORKING_DIRECTORY }}
     
     - name: Merge to main branch

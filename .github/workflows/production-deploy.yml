@@ -142,13 +142,14 @@ jobs:
         name: production-build  
         path: ${{ env.WORKING_DIRECTORY }}/build
     
-    - name: Deploy to Firebase Production
+    - name: Deploy to Firebase Production Target
       uses: FirebaseExtended/action-hosting-deploy@v0
       with:
         repoToken: '${{ secrets.GITHUB_TOKEN }}'
-        firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRODUCTION }}'
+        firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
         projectId: kiddo-quest-de7b0
         channelId: live
+        target: production
         entryPoint: ${{ env.WORKING_DIRECTORY }}
 
   post-deployment-tests:
