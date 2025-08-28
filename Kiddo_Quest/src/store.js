@@ -1061,14 +1061,18 @@ const useKiddoQuestStore = create((set, get) => ({
   
   // --- Child Actions (Quest/Reward Claiming) ---
   claimQuest: async (questId, childId) => {
+    console.log('🎯 Attempting to claim quest:', { questId, childId });
     set({ isLoadingData: true });
     
     try {
       const quest = get().quests.find(q => q.id === questId);
       if (!quest) {
+        console.error('❌ Quest not found:', questId);
         set({ isLoadingData: false });
-        return false;
+        return { success: false, message: 'Quest not found' };
       }
+      
+      console.log('📋 Quest details:', quest);
       
       // For daily quests, create a completion record instead of marking the quest as claimed
       if (quest.type === 'recurring' && quest.frequency === 'daily') {
@@ -1090,7 +1094,8 @@ const useKiddoQuestStore = create((set, get) => ({
         }
         
         // Create a completion record
-        await addDoc(collection(db, 'questCompletions'), {
+        console.log('📝 Creating quest completion record...');
+        const completionRef = await addDoc(collection(db, 'questCompletions'), {
           questId,
           childId,
           questTitle: quest.title,
@@ -1101,8 +1106,27 @@ const useKiddoQuestStore = create((set, get) => ({
           parentId: quest.parentId
         });
         
-        set({ isLoadingData: false });
-        return { success: true, message: 'Daily quest claimed!' };
+        console.log('✅ Quest completion created:', completionRef.id);
+        
+        // Update local state with the new completion
+        const newCompletion = {
+          id: completionRef.id,
+          questId,
+          childId,
+          questTitle: quest.title,
+          xp: quest.xp,
+          status: 'pending_verification',
+          claimedAt: new Date().toISOString(),
+          completedDate: new Date().toISOString(),
+          parentId: quest.parentId
+        };
+        
+        set(state => ({
+          questCompletions: [...state.questCompletions, newCompletion],
+          isLoadingData: false
+        }));
+        
+        return { success: true, message: 'Daily quest claimed! Waiting for parent verification.' };
       } else {
         // For one-time quests, use the original logic
         const questRef = doc(db, 'quests', questId);

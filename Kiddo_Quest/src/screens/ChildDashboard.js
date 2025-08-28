@@ -99,10 +99,14 @@ const ChildDashboard = ({ onViewChange }) => {
   
   const pendingQuests = [...pendingOneTimeQuests, ...pendingDailyQuests];
   
-  const availableRewards = rewards.filter(reward => 
-    reward.status === 'available' && 
-    reward.assignedTo?.includes(selectedChildIdForDashboard)
-  );
+  const availableRewards = rewards.filter(reward => {
+    // Check if reward is available
+    if (reward.status !== 'available') return false;
+    
+    // Check if reward is assigned to this child (or no assignment means available to all)
+    const isAssignedToChild = !reward.assignedTo || reward.assignedTo.length === 0 || reward.assignedTo.includes(selectedChildIdForDashboard);
+    return isAssignedToChild;
+  });
   
   // Update window size for confetti
   useEffect(() => {
