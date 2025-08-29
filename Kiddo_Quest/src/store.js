@@ -1062,13 +1062,12 @@ const useKiddoQuestStore = create((set, get) => ({
   // --- Child Actions (Quest/Reward Claiming) ---
   claimQuest: async (questId, childId) => {
     console.log('🎯 Attempting to claim quest:', { questId, childId });
-    set({ isLoadingData: true });
+    // Don't set isLoadingData here - it causes the entire UI to reload
     
     try {
       const quest = get().quests.find(q => q.id === questId);
       if (!quest) {
         console.error('❌ Quest not found:', questId);
-        set({ isLoadingData: false });
         return { success: false, message: 'Quest not found' };
       }
       
@@ -1089,7 +1088,6 @@ const useKiddoQuestStore = create((set, get) => ({
         
         const completionSnapshot = await getDocs(completionQuery);
         if (!completionSnapshot.empty) {
-          set({ isLoadingData: false });
           return { success: false, message: 'You have already completed this quest today!' };
         }
         
@@ -1122,8 +1120,7 @@ const useKiddoQuestStore = create((set, get) => ({
         };
         
         set(state => ({
-          questCompletions: [...state.questCompletions, newCompletion],
-          isLoadingData: false
+          questCompletions: [...state.questCompletions, newCompletion]
         }));
         
         return { success: true, message: 'Daily quest claimed! Waiting for parent verification.' };
@@ -1149,15 +1146,13 @@ const useKiddoQuestStore = create((set, get) => ({
                   claimedAt: new Date().toISOString()
                 } 
               : quest
-          ),
-          isLoadingData: false
+          )
         }));
         
         return { success: true, message: 'Quest claimed!' };
       }
     } catch (error) {
       console.error("Error claiming quest:", error);
-      set({ isLoadingData: false });
       return { success: false, message: 'Failed to claim quest' };
     }
   },

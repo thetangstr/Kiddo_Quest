@@ -16,7 +16,8 @@ const ChildDashboard = ({ onViewChange }) => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [notification, setNotification] = useState(null);
   const [showPinModal, setShowPinModal] = useState(false);
-  const [pinError, setPinError] = useState('');  
+  const [pinError, setPinError] = useState('');
+  const [claimingQuestId, setClaimingQuestId] = useState(null); // Track which quest is being claimed
   
   const { 
     childProfiles, 
@@ -165,25 +166,33 @@ const ChildDashboard = ({ onViewChange }) => {
   const handleClaimQuest = async (questId) => {
     if (!selectedChildIdForDashboard) return;
     
-    const result = await claimQuest(questId, selectedChildIdForDashboard);
+    // Set loading state for this specific quest
+    setClaimingQuestId(questId);
     
-    // Handle both old boolean return and new object return
-    const success = typeof result === 'boolean' ? result : result.success;
-    const message = typeof result === 'object' && result.message 
-      ? result.message 
-      : success 
-        ? 'Quest claimed! Waiting for parent verification.' 
-        : 'Failed to claim quest. Please try again.';
-    
-    setNotification({
-      type: success ? 'success' : 'error',
-      message: message
-    });
-    
-    // Clear notification after 3 seconds
-    setTimeout(() => {
-      setNotification(null);
-    }, 3000);
+    try {
+      const result = await claimQuest(questId, selectedChildIdForDashboard);
+      
+      // Handle both old boolean return and new object return
+      const success = typeof result === 'boolean' ? result : result.success;
+      const message = typeof result === 'object' && result.message 
+        ? result.message 
+        : success 
+          ? 'Quest claimed! Waiting for parent verification.' 
+          : 'Failed to claim quest. Please try again.';
+      
+      setNotification({
+        type: success ? 'success' : 'error',
+        message: message
+      });
+      
+      // Clear notification after 3 seconds
+      setTimeout(() => {
+        setNotification(null);
+      }, 3000);
+    } finally {
+      // Always clear loading state
+      setClaimingQuestId(null);
+    }
   };
   
   // Handle reward claiming
@@ -350,8 +359,9 @@ const ChildDashboard = ({ onViewChange }) => {
                   variant="primary"
                   className="mt-auto w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold text-lg py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
                   onClick={() => handleClaimQuest(quest.id)}
+                  disabled={claimingQuestId === quest.id}
                 >
-                  I Did This! 🎉
+                  {claimingQuestId === quest.id ? 'Claiming...' : 'I Did This! 🎉'}
                 </Button>
               </Card>
             ))}

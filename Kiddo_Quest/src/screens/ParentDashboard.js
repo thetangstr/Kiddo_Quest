@@ -256,7 +256,33 @@ const ParentDashboard = () => {
                           {completion.xp} XP • Completed by {child?.name || 'Unknown'}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {new Date(completion.completedDate.toDate()).toLocaleDateString()}
+                          {(() => {
+                            // Safe date handling for different formats
+                            if (!completion.completedDate) return 'No date';
+                            
+                            try {
+                              // Handle string dates (ISO format)
+                              if (typeof completion.completedDate === 'string') {
+                                return new Date(completion.completedDate).toLocaleDateString();
+                              }
+                              
+                              // Handle Firestore Timestamp objects
+                              if (completion.completedDate.toDate && typeof completion.completedDate.toDate === 'function') {
+                                return completion.completedDate.toDate().toLocaleDateString();
+                              }
+                              
+                              // Handle regular Date objects or timestamps
+                              if (completion.completedDate instanceof Date) {
+                                return completion.completedDate.toLocaleDateString();
+                              }
+                              
+                              // Try to convert to Date as fallback
+                              return new Date(completion.completedDate).toLocaleDateString();
+                            } catch (error) {
+                              console.error('Date formatting error:', error, completion.completedDate);
+                              return 'Invalid date';
+                            }
+                          })()}
                         </p>
                       </div>
                     </div>
