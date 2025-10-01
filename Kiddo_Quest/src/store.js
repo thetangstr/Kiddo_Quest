@@ -1054,14 +1054,20 @@ const useKiddoQuestStore = create((set, get) => ({
       const { imageFile, ...dataToAdd } = rewardData;
       
       // Add reward to Firestore
-      const rewardRef = await addDoc(collection(db, 'rewards'), {
+      const firestoreData = {
         ...dataToAdd,
         parentId,
         status: 'available',
         image: imageUrl,
-        source: dataToAdd.source, // Save Amazon product source if present
         createdAt: serverTimestamp()
-      });
+      };
+      
+      // Only add source field if it exists and is not undefined
+      if (dataToAdd.source !== undefined && dataToAdd.source !== null) {
+        firestoreData.source = dataToAdd.source;
+      }
+      
+      const rewardRef = await addDoc(collection(db, 'rewards'), firestoreData);
       
       const newReward = {
         id: rewardRef.id,
@@ -1069,9 +1075,13 @@ const useKiddoQuestStore = create((set, get) => ({
         parentId,
         status: 'available',
         image: imageUrl,
-        source: dataToAdd.source, // Include Amazon product source in state
         createdAt: new Date().toISOString()
       };
+      
+      // Only add source field to state if it exists
+      if (dataToAdd.source !== undefined && dataToAdd.source !== null) {
+        newReward.source = dataToAdd.source;
+      }
       
       set(state => ({ 
         rewards: [...state.rewards, newReward],
@@ -1136,12 +1146,20 @@ const useKiddoQuestStore = create((set, get) => ({
       console.log('🔄 Updating Firestore document...', cleanedData);
       
       // Update reward in Firestore
-      await updateDoc(doc(db, 'rewards', rewardId), {
+      const updateData = {
         ...cleanedData,
         image: imageUrl || reward.image,
-        source: cleanedData.source || reward.source, // Preserve existing source info
         updatedAt: serverTimestamp()
-      });
+      };
+      
+      // Only update source field if it exists and is not undefined
+      if (cleanedData.source !== undefined && cleanedData.source !== null) {
+        updateData.source = cleanedData.source;
+      } else if (reward.source !== undefined && reward.source !== null) {
+        updateData.source = reward.source; // Preserve existing source info
+      }
+      
+      await updateDoc(doc(db, 'rewards', rewardId), updateData);
       
       console.log('✅ Firestore update successful');
       
