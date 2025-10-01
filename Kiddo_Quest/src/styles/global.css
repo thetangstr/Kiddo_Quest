@@ -36,8 +36,22 @@
   
   /* Layout */
   --container-padding: 24px;
+  --container-padding-mobile: 16px;
   --vertical-gap: 20px;
+  --vertical-gap-mobile: 12px;
   --horizontal-gap: 16px;
+  --horizontal-gap-mobile: 12px;
+  
+  /* Mobile Breakpoints */
+  --mobile-sm: 320px;  /* Small mobile */
+  --mobile-md: 375px;  /* Medium mobile */
+  --mobile-lg: 414px;  /* Large mobile */
+  --tablet: 768px;     /* Tablet */
+  --desktop: 1024px;   /* Desktop */
+  
+  /* Touch Target Sizes */
+  --touch-target-min: 44px;  /* iOS minimum */
+  --touch-target-comfortable: 48px;
 }
 
 /* Base styles */
@@ -48,6 +62,149 @@ html, body {
   color: var(--text-primary);
   margin: 0;
   padding: 0;
+  /* Prevent horizontal scroll on mobile */
+  overflow-x: hidden;
+}
+
+/* Mobile-first responsive typography */
+html {
+  font-size: 14px; /* Smaller base for mobile */
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16px; /* Standard size for tablet+ */
+  }
+}
+
+/* Container styles with responsive padding */
+.container {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--container-padding-mobile);
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding: 0 var(--container-padding);
+    max-width: 1200px;
+  }
+}
+
+/* Mobile-optimized button spacing */
+.button-group {
+  display: flex;
+  gap: var(--horizontal-gap-mobile);
+  flex-wrap: wrap;
+}
+
+@media (min-width: 768px) {
+  .button-group {
+    gap: var(--horizontal-gap);
+    flex-wrap: nowrap;
+  }
+}
+
+/* Responsive spacing utilities */
+.space-y-mobile > * + * {
+  margin-top: var(--vertical-gap-mobile);
+}
+
+@media (min-width: 768px) {
+  .space-y-mobile > * + * {
+    margin-top: var(--vertical-gap);
+  }
+}
+
+/* Touch-friendly interactive elements */
+.touch-target {
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+}
+
+.touch-target-comfortable {
+  min-height: var(--touch-target-comfortable);
+  min-width: var(--touch-target-comfortable);
+}
+
+/* Mobile navigation optimizations */
+.mobile-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card-white);
+  box-shadow: var(--shadow-soft);
+  z-index: 50;
+}
+
+@media (min-width: 768px) {
+  .mobile-nav {
+    position: static;
+    box-shadow: none;
+  }
+}
+
+/* Text scaling for mobile readability */
+.text-mobile {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+@media (min-width: 768px) {
+  .text-mobile {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+}
+
+/* Card responsiveness */
+.card-responsive {
+  margin: var(--vertical-gap-mobile) 0;
+  padding: var(--container-padding-mobile);
+}
+
+@media (min-width: 768px) {
+  .card-responsive {
+    margin: var(--vertical-gap) 0;
+    padding: var(--container-padding);
+  }
+}
+
+/* Grid responsiveness */
+.grid-responsive {
+  display: grid;
+  gap: var(--horizontal-gap-mobile);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .grid-responsive {
+    gap: var(--horizontal-gap);
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+}
+
+/* Form element responsiveness */
+.form-responsive {
+  width: 100%;
+}
+
+.form-responsive input,
+.form-responsive textarea,
+.form-responsive select {
+  width: 100%;
+  font-size: 16px; /* Prevent zoom on iOS */
+  padding: 12px 16px;
+}
+
+@media (min-width: 768px) {
+  .form-responsive input,
+  .form-responsive textarea,
+  .form-responsive select {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
   line-height: 1.5;
 }
 

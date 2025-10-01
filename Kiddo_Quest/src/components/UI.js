@@ -3,7 +3,7 @@ import * as Icons from 'lucide-react';
 import { AccessibilityOptions } from './AccessibilityOptions';
 import { theme } from '../theme';
 
-// Button Component
+// Button Component with Mobile Responsiveness
 export const Button = ({ 
   onClick, 
   children, 
@@ -11,46 +11,60 @@ export const Button = ({
   className = '', 
   icon: Icon, 
   type = 'button', 
-  disabled = false 
+  disabled = false,
+  size = 'medium' // New size prop
 }) => {
-  // Base classes for all buttons - neumorphic style
-  const baseClasses = "flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-300 focus:outline-none";
+  // Base classes for all buttons - neumorphic style with mobile considerations
+  const baseClasses = "flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-300 focus:outline-none touch-target";
   
-  // Variant-specific classes based on our new design system
+  // Mobile-responsive size classes
+  const sizeClasses = {
+    small: "px-3 py-2 text-sm min-h-[40px]", // Still touch-friendly
+    medium: "px-4 py-3 text-sm sm:px-6 sm:py-3 sm:text-base min-h-[44px]", // iOS minimum
+    large: "px-6 py-4 text-base sm:px-8 sm:py-4 sm:text-lg min-h-[48px]", // Comfortable touch
+    icon: "w-11 h-11 sm:w-10 sm:h-10 p-0 rounded-full", // Larger on mobile
+    link: "p-1 min-h-[44px] min-w-[44px]" // Touch-friendly link
+  };
+  
+  // Variant-specific classes with mobile optimizations
   const variantClasses = {
-    primary: "bg-[#59569D] hover:bg-opacity-90 text-white shadow-md hover:shadow-lg transform hover:-translate-y-1 active:shadow-inner active:translate-y-0",
-    secondary: "bg-white hover:bg-opacity-95 text-[#59569D] border border-[#E0E0E5] shadow-md hover:shadow-lg transform hover:-translate-y-1 active:shadow-inner active:translate-y-0",
-    success: "bg-green-500 hover:bg-green-600 text-white shadow-md hover:shadow-lg transform hover:-translate-y-1 active:shadow-inner active:translate-y-0",
-    danger: "bg-red-500 hover:bg-red-600 text-white shadow-md hover:shadow-lg transform hover:-translate-y-1 active:shadow-inner active:translate-y-0",
-    outline: "bg-transparent border-2 border-[#59569D] text-[#59569D] hover:bg-opacity-10 shadow-md hover:shadow-lg transform hover:-translate-y-1 active:shadow-inner active:translate-y-0",
-    glass: "backdrop-filter backdrop-blur-xl bg-opacity-50 bg-[#2C2B4B] text-white shadow-md hover:shadow-lg transform hover:-translate-y-1 active:shadow-inner active:translate-y-0",
-    link: "text-[#59569D] hover:text-opacity-80 underline p-0 hover:no-underline",
-    icon: "bg-white text-[#59569D] rounded-full w-10 h-10 p-0 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-1 active:shadow-inner active:translate-y-0",
+    primary: "bg-[#59569D] hover:bg-opacity-90 text-white shadow-md hover:shadow-lg active:shadow-inner active:scale-95 sm:transform sm:hover:-translate-y-1 sm:active:translate-y-0",
+    secondary: "bg-white hover:bg-opacity-95 text-[#59569D] border border-[#E0E0E5] shadow-md hover:shadow-lg active:shadow-inner active:scale-95 sm:transform sm:hover:-translate-y-1 sm:active:translate-y-0",
+    success: "bg-green-500 hover:bg-green-600 text-white shadow-md hover:shadow-lg active:shadow-inner active:scale-95 sm:transform sm:hover:-translate-y-1 sm:active:translate-y-0",
+    danger: "bg-red-500 hover:bg-red-600 text-white shadow-md hover:shadow-lg active:shadow-inner active:scale-95 sm:transform sm:hover:-translate-y-1 sm:active:translate-y-0",
+    outline: "bg-transparent border-2 border-[#59569D] text-[#59569D] hover:bg-[#59569D] hover:bg-opacity-10 shadow-md hover:shadow-lg active:shadow-inner active:scale-95 sm:transform sm:hover:-translate-y-1 sm:active:translate-y-0",
+    glass: "backdrop-filter backdrop-blur-xl bg-opacity-50 bg-[#2C2B4B] text-white shadow-md hover:shadow-lg active:shadow-inner active:scale-95 sm:transform sm:hover:-translate-y-1 sm:active:translate-y-0",
+    link: "text-[#59569D] hover:text-opacity-80 underline hover:no-underline bg-transparent",
+    icon: "bg-white text-[#59569D] shadow-md hover:shadow-lg active:shadow-inner active:scale-95 sm:transform sm:hover:-translate-y-1 sm:active:translate-y-0",
     custom: "" // Empty string to allow custom styling via className
   };
   
-  // Size classes - adjusted for neumorphic style
-  const sizeClasses = variant === 'link' ? "" : variant === 'icon' ? "" : "px-6 py-3";
+  // Determine the size to use
+  const buttonSize = variant === 'icon' ? 'icon' : variant === 'link' ? 'link' : size;
   
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`${baseClasses} ${variantClasses[variant] || ''} ${variant !== 'custom' && variant !== 'icon' ? sizeClasses : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+      className={`${baseClasses} ${variantClasses[variant] || ''} ${sizeClasses[buttonSize] || sizeClasses.medium} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
       style={{
         fontFamily: "'Inter', system-ui, sans-serif",
         fontWeight: "600",
-        fontSize: "0.85rem",
+        // Responsive font sizing
+        fontSize: variant === 'icon' ? undefined : 'clamp(0.8rem, 2.5vw, 0.9rem)',
+        // Ensure good touch targets on mobile
+        WebkitTapHighlightColor: 'transparent',
+        userSelect: 'none'
       }}
     >
-      {Icon && <Icon className={`${variant === 'icon' ? 'w-5 h-5' : 'w-4 h-4'}`} />}
+      {Icon && <Icon className={`${variant === 'icon' ? 'w-5 h-5 sm:w-4 sm:h-4' : 'w-4 h-4 sm:w-3 sm:h-3'}`} />}
       {variant !== 'icon' && children}
     </button>
   );
 };
 
-// Input Field Component
+// Input Field Component with Mobile Optimizations
 export const InputField = ({ 
   label, 
   type = 'text', 
@@ -62,8 +76,8 @@ export const InputField = ({
   className = ''
 }) => {
   return (
-    <div className={`mb-5 ${className}`}>
-      <label className="block text-[#2C2B4B] text-sm font-medium mb-2" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className={`mb-4 sm:mb-5 ${className}`}>
+      <label className="block text-[#2C2B4B] text-sm sm:text-base font-medium mb-2" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <input
@@ -73,10 +87,12 @@ export const InputField = ({
         placeholder={placeholder}
         name={name}
         required={required}
-        className="w-full px-4 py-3 bg-white border border-[#E0E0E5] rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-[#59569D] focus:border-[#59569D] transition-all duration-300"
+        className="w-full px-4 py-3 sm:px-3 sm:py-2 bg-white border border-[#E0E0E5] rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-[#59569D] focus:border-[#59569D] transition-all duration-300 min-h-[44px]"
         style={{
           fontFamily: "'Inter', system-ui, sans-serif",
-          fontSize: "0.9rem"
+          fontSize: "16px", // Prevent zoom on iOS
+          WebkitAppearance: 'none', // Remove iOS styling
+          borderRadius: '9999px' // Ensure rounded corners
         }}
       />
     </div>

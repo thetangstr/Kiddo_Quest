@@ -218,13 +218,51 @@ export const RewardFormScreen = () => {
     }));
   };
   
+  const [submitError, setSubmitError] = useState('');
+  const [submitSuccess, setSubmitSuccess] = useState('');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitError('');
+    setSubmitSuccess('');
     
-    if (editingRewardId) {
-      await updateReward(editingRewardId, formData);
-    } else {
-      await addReward(formData);
+    // Basic validation
+    if (!formData.title.trim()) {
+      setSubmitError('Reward title is required');
+      return;
+    }
+    
+    if (!formData.description.trim()) {
+      setSubmitError('Reward description is required');
+      return;
+    }
+    
+    if (formData.cost < 1) {
+      setSubmitError('XP cost must be at least 1');
+      return;
+    }
+    
+    try {
+      console.log('🎁 Submitting reward form...', { editingRewardId, formData });
+      
+      if (editingRewardId) {
+        const result = await updateReward(editingRewardId, formData);
+        setSubmitSuccess('Reward updated successfully! 🎉');
+        console.log('✅ Reward update result:', result);
+      } else {
+        const result = await addReward(formData);
+        setSubmitSuccess('Reward created successfully! 🎉');
+        console.log('✅ Reward creation result:', result);
+      }
+      
+      // Navigate back after a short delay to show success message
+      setTimeout(() => {
+        navigateTo('manageRewards');
+      }, 1500);
+      
+    } catch (error) {
+      console.error('❌ Form submission error:', error);
+      setSubmitError(error.message || 'An error occurred. Please try again.');
     }
   };
   
@@ -352,11 +390,25 @@ export const RewardFormScreen = () => {
             onChange={handleAssignedToChange}
           />
           
+          {/* Error and Success Messages */}
+          {submitError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg">
+              ❌ {submitError}
+            </div>
+          )}
+          
+          {submitSuccess && (
+            <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-700 rounded-lg">
+              ✅ {submitSuccess}
+            </div>
+          )}
+          
           <div className="flex justify-end space-x-3 mt-6">
             <Button 
               variant="outline" 
               type="button"
               onClick={() => navigateTo('manageRewards')}
+              disabled={isLoadingData}
             >
               Cancel
             </Button>
@@ -364,8 +416,12 @@ export const RewardFormScreen = () => {
               type="submit" 
               variant="primary" 
               icon={editingRewardId ? Edit3 : PlusCircle}
+              disabled={isLoadingData}
             >
-              {editingRewardId ? 'Update Reward' : 'Create Reward'}
+              {isLoadingData 
+                ? (editingRewardId ? 'Updating...' : 'Creating...') 
+                : (editingRewardId ? 'Update Reward' : 'Create Reward')
+              }
             </Button>
           </div>
         </form>
