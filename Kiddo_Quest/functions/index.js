@@ -4,6 +4,11 @@ const nodemailer = require('nodemailer');
 
 admin.initializeApp();
 
+// Import feedback webhook functions
+const feedbackWebhook = require('./feedbackWebhook');
+exports.triggerFeedbackSync = feedbackWebhook.triggerFeedbackSync;
+exports.onFeedbackStatusChange = feedbackWebhook.onFeedbackStatusChange;
+
 // Create transporter for sending emails
 const transporter = nodemailer.createTransport({
   service: 'gmail',

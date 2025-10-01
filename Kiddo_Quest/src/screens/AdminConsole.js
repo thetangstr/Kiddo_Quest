@@ -3,10 +3,12 @@ import { collection, getDocs, orderBy, query, doc, updateDoc, addDoc, serverTime
 import { db } from '../firebase';
 import { Button, Card, LoadingSpinner } from '../components/UI';
 import { cleanupDuplicateUsers } from '../utils/cleanupDuplicateUsers';
+import AdminFeedbackManager from './AdminFeedbackManager';
 
 // Admin Console tabs
 const TABS = {
   BUGS: 'bugs',
+  FEEDBACK: 'feedback',
   INVITATIONS: 'invitations',
   USERS: 'users'
 };
@@ -313,6 +315,12 @@ export default function AdminConsole({ user, onBack }) {
           Bug Reports
         </button>
         <button 
+          className={`py-2 px-4 font-medium ${activeTab === TABS.FEEDBACK ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab(TABS.FEEDBACK)}
+        >
+          Feedback Manager
+        </button>
+        <button 
           className={`py-2 px-4 font-medium ${activeTab === TABS.INVITATIONS ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}
           onClick={() => setActiveTab(TABS.INVITATIONS)}
         >
@@ -408,6 +416,11 @@ export default function AdminConsole({ user, onBack }) {
             </div>
           )}
         </div>
+      )}
+      
+      {/* Feedback Manager Tab */}
+      {activeTab === TABS.FEEDBACK && (
+        <AdminFeedbackManager user={user} onBack={() => setActiveTab(TABS.BUGS)} />
       )}
       
       {/* User Invitations Tab */}

@@ -1,0 +1,178 @@
+name: Sync Feedback to Development
+
+on:
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    inputs:
+      sync_direction:
+        description: 'Sync direction'
+        required: true
+        default: 'to-github'
+        type: choice
+        options:
+          - to-github
+          - from-github
+          - both
+
+jobs:
+  sync-feedback:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: Kiddo_Quest/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./Kiddo_Quest
+        run: |
+          npm ci
+          npm install @octokit/rest dotenv
+
+      - name: Sync feedback to GitHub Issues
+        if: github.event_name == 'schedule' || github.event.inputs.sync_direction == 'to-github' || github.event.inputs.sync_direction == 'both'
+        working-directory: ./Kiddo_Quest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+        run: node scripts/feedback-to-github.js
+
+      - name: Sync GitHub status back to Firebase
+        if: github.event.inputs.sync_direction == 'from-github' || github.event.inputs.sync_direction == 'both'
+        working-directory: ./Kiddo_Quest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+        run: node scripts/feedback-to-github.js --sync-back
+
+      - name: Create sync summary
+        if: always()
+        run: |
+          echo "## Feedback Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Sync Time:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered By:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "- **Direction:** ${{ github.event.inputs.sync_direction }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  create-pr-for-critical:
+    runs-on: ubuntu-latest
+    needs: sync-feedback
+    if: github.event_name == 'schedule' || github.event.inputs.sync_direction == 'to-github'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for critical issues
+        id: check-critical
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'from-feedback,priority: high',
+              state: 'open'
+            });
+            
+            const criticalIssues = issues.data.filter(issue => 
+              !issue.pull_request && 
+              !issue.labels.some(l => l.name === 'has-pr')
+            );
+            
+            if (criticalIssues.length > 0) {
+              core.setOutput('has_critical', 'true');
+              core.setOutput('issue_number', criticalIssues[0].number);
+              core.setOutput('issue_title', criticalIssues[0].title);
+              return criticalIssues[0];
+            }
+            
+            core.setOutput('has_critical', 'false');
+            return null;
+
+      - name: Create feature branch for critical issue
+        if: steps.check-critical.outputs.has_critical == 'true'
+        run: |
+          BRANCH_NAME="fix/feedback-issue-${{ steps.check-critical.outputs.issue_number }}"
+          git checkout -b $BRANCH_NAME
+          
+          # Create a placeholder file for the fix
+          cat > Kiddo_Quest/docs/FEEDBACK_FIX_${{ steps.check-critical.outputs.issue_number }}.md << EOF
+          # Fix for Issue #${{ steps.check-critical.outputs.issue_number }}
+          
+          ## Issue
+          ${{ steps.check-critical.outputs.issue_title }}
+          
+          ## Implementation Plan
+          1. Analyze the issue
+          2. Implement fix
+          3. Add tests
+          4. Update documentation
+          
+          ## Status
+          - [ ] Issue analyzed
+          - [ ] Fix implemented
+          - [ ] Tests added
+          - [ ] Documentation updated
+          
+          ---
+          *This file was auto-generated for tracking the fix implementation.*
+          EOF
+          
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git add .
+          git commit -m "chore: Initialize fix for feedback issue #${{ steps.check-critical.outputs.issue_number }}"
+          git push origin $BRANCH_NAME
+
+      - name: Create Pull Request
+        if: steps.check-critical.outputs.has_critical == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: fix/feedback-issue-${{ steps.check-critical.outputs.issue_number }}
+          title: "Fix: ${{ steps.check-critical.outputs.issue_title }}"
+          body: |
+            ## Automated Fix for User Feedback
+            
+            This PR was automatically created to address critical user feedback.
+            
+            **Related Issue:** #${{ steps.check-critical.outputs.issue_number }}
+            
+            ### Checklist
+            - [ ] Issue has been analyzed
+            - [ ] Fix has been implemented
+            - [ ] Tests have been added/updated
+            - [ ] Documentation has been updated
+            - [ ] Manually tested the fix
+            
+            ### Next Steps
+            1. A developer should review the issue
+            2. Implement the actual fix
+            3. Update tests
+            4. Request review
+            
+            ---
+            *This PR was automatically generated by the feedback sync workflow.*
+          labels: |
+            from-feedback
+            priority: high
+            needs-implementation
+          assignees: ${{ github.actor }}
