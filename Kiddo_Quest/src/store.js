@@ -1050,8 +1050,8 @@ const useKiddoQuestStore = create((set, get) => ({
         imageUrl = await getDownloadURL(storageRef);
       }
       
-      // Prepare data for Firestore (remove imageFile and source which need special handling)
-      const { imageFile, source, ...dataToAdd } = rewardData;
+      // Prepare data for Firestore (remove imageFile which needs special handling)
+      const { imageFile, ...dataToAdd } = rewardData;
       
       // Add reward to Firestore
       const firestoreData = {
@@ -1062,10 +1062,6 @@ const useKiddoQuestStore = create((set, get) => ({
         createdAt: serverTimestamp()
       };
       
-      // Only add source field if it exists and is not undefined
-      if (source !== undefined && source !== null) {
-        firestoreData.source = source;
-      }
       
       const rewardRef = await addDoc(collection(db, 'rewards'), firestoreData);
       
@@ -1078,10 +1074,6 @@ const useKiddoQuestStore = create((set, get) => ({
         createdAt: new Date().toISOString()
       };
       
-      // Only add source field to state if it exists
-      if (source !== undefined && source !== null) {
-        newReward.source = source;
-      }
       
       set(state => ({ 
         rewards: [...state.rewards, newReward],
@@ -1135,10 +1127,10 @@ const useKiddoQuestStore = create((set, get) => ({
         console.log('✅ Image uploaded successfully:', imageUrl);
       }
       
-      // Prepare data for Firestore (remove imageFile and source which need special handling)
-      const { imageFile, source, ...dataToUpdate } = updatedData;
+      // Prepare data for Firestore (remove imageFile which needs special handling)
+      const { imageFile, ...dataToUpdate } = updatedData;
       
-      // Clean up undefined values (excluding source which is handled separately)
+      // Clean up undefined values
       const cleanedData = Object.fromEntries(
         Object.entries(dataToUpdate).filter(([_, value]) => value !== undefined)
       );
@@ -1152,12 +1144,6 @@ const useKiddoQuestStore = create((set, get) => ({
         updatedAt: serverTimestamp()
       };
       
-      // Only update source field if it exists and is not undefined
-      if (source !== undefined && source !== null) {
-        updateData.source = source;
-      } else if (reward.source !== undefined && reward.source !== null) {
-        updateData.source = reward.source; // Preserve existing source info
-      }
       
       await updateDoc(doc(db, 'rewards', rewardId), updateData);
       
@@ -1171,7 +1157,6 @@ const useKiddoQuestStore = create((set, get) => ({
                 ...existingReward, 
                 ...cleanedData, 
                 image: imageUrl || existingReward.image,
-                source: cleanedData.source || existingReward.source,
                 updatedAt: new Date().toISOString()
               } 
             : existingReward

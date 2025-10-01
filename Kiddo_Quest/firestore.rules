@@ -58,8 +58,13 @@ service cloud.firestore {
     
     // Feedback reports - users can create their own, admins can read all
     match /feedbackReports/{reportId} {
+      // Allow authenticated users to create feedback with their userId
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Also allow anonymous feedback (when not logged in)
+      allow create: if request.auth == null && request.resource.data.userId == 'anonymous';
+      // Allow users to read their own feedback, admins can read all
       allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      // Only admins can update/write
       allow write, update: if request.auth != null && isAdmin();
     }
     

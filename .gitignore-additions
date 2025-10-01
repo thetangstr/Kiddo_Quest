@@ -1,0 +1,64 @@
+# Add these entries to your .gitignore file
+
+# Service Account Keys and Sensitive Files
+serviceAccountKey.json
+*firebase-adminsdk*.json
+keys/
+*.pem
+*.key
+
+# Build Artifacts
+*.aab
+*.apk
+*.ipa
+dist/
+build/
+web-build/
+android/app/build/
+ios/build/
+
+# Test Artifacts
+playwright-report/
+test-results/
+coverage/
+*.lcov
+test-*.html
+
+# Temporary Files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+Screenshot*.png
+
+# Local Config
+users.json
+auth_config.json
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Mobile specific
+.expo/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+*.orig.*
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

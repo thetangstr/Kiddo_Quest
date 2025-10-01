@@ -541,7 +541,7 @@ const useStore = create<AppState>()(
       },
       
       completeQuest: async (questId) => {
-        set({ isLoading: true });
+        // Don't set global loading - it causes UI to reload
         try {
           const db = getFirestore();
           const state = get();

@@ -7,9 +7,11 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "browser-image-compression": "^2.0.2",
     "firebase": "^11.7.1",
+    "firebase-admin": "^13.5.0",
     "lucide-react": "^0.509.0",
     "react": "^19.1.0",
     "react-confetti": "^6.4.0",
@@ -27,6 +29,8 @@
     "test:e2e": "playwright test",
     "test:e2e:minimal": "playwright test tests/minimal-ci-test.spec.js",
     "test:e2e:ui": "playwright test --ui",
+    "test:auto": "node scripts/auto-test-on-change.js",
+    "test:auto:once": "node scripts/auto-test-on-change.js once",
     "predeploy": "npm run test:e2e",
     "deploy": "npm run build && firebase deploy"
   },
@@ -51,6 +55,7 @@
   "devDependencies": {
     "@playwright/test": "^1.53.1",
     "autoprefixer": "^10.4.21",
+    "chokidar": "^4.0.3",
     "postcss": "^8.5.3",
     "tailwindcss": "^4.1.6",
     "wait-on": "^8.0.1"

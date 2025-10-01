@@ -45,3 +45,9 @@ fix-auth-domains.md
 # OS
 .DS_Store
 Thumbs.db
+
+# Service account keys - NEVER commit these
+serviceAccountKey.json
+serviceAccountKey*.json
+**/serviceAccountKey.json
+**/serviceAccountKey*.json

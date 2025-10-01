@@ -31,6 +31,8 @@ export default function ChildDashboardScreen({ navigation, route }: Props) {
   } = useStore();
 
   const [child, setChild] = useState(null);
+  const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
+  const [redeemingRewardId, setRedeemingRewardId] = useState<string | null>(null);
 
   useEffect(() => {
     // Find the child by ID
@@ -102,11 +104,14 @@ export default function ChildDashboardScreen({ navigation, route }: Props) {
   const totalPoints = completedQuests.reduce((sum, quest) => sum + quest.points, 0);
 
   const handleCompleteQuest = async (questId: string) => {
+    setClaimingQuestId(questId);
     try {
       await completeQuest(questId);
       Alert.alert('Congratulations!', 'Quest completed! You earned points!');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to complete quest');
+    } finally {
+      setClaimingQuestId(null);
     }
   };
 
@@ -127,11 +132,14 @@ export default function ChildDashboardScreen({ navigation, route }: Props) {
         {
           text: 'Redeem',
           onPress: async () => {
+            setRedeemingRewardId(rewardId);
             try {
               await redeemReward(rewardId);
               Alert.alert('Success!', 'Reward redeemed successfully!');
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to redeem reward');
+            } finally {
+              setRedeemingRewardId(null);
             }
           }
         }
@@ -206,10 +214,11 @@ export default function ChildDashboardScreen({ navigation, route }: Props) {
                         </Text>
                       </View>
                       <Button
-                        title="I Did It! ✨"
+                        title={claimingQuestId === quest.id ? "Claiming..." : "I Did It! ✨"}
                         onPress={() => handleCompleteQuest(quest.id)}
                         variant="completion"
                         size="medium"
+                        disabled={claimingQuestId === quest.id}
                       />
                     </View>
                   </Card>
@@ -249,11 +258,11 @@ export default function ChildDashboardScreen({ navigation, route }: Props) {
                         </Text>
                       </View>
                       <Button
-                        title="Redeem"
+                        title={redeemingRewardId === reward.id ? "Redeeming..." : "Redeem"}
                         onPress={() => handleRedeemReward(reward.id, reward.points)}
                         variant={totalPoints >= reward.points ? "primary" : "secondary"}
                         size="small"
-                        disabled={totalPoints < reward.points}
+                        disabled={totalPoints < reward.points || redeemingRewardId === reward.id}
                       />
                     </View>
                   </Card>
