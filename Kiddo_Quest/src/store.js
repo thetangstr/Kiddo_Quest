@@ -24,6 +24,16 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage, googleProvider } from './firebase';
 import { SUBSCRIPTION_TIERS, FEATURES, isFeatureAvailable } from './utils/subscriptionManager';
 import { verifyInvitation, acceptInvitation } from './utils/invitationManager';
+import logger from './utils/logger';
+import { isUserAdmin } from './utils/adminManager';
+import {
+  validateChildProfile,
+  validateQuest,
+  validateReward,
+  validatePIN,
+  sanitizeData,
+  logValidationErrors
+} from './utils/validator';
 
 // Zustand Store for Global State Management
 const useKiddoQuestStore = create((set, get) => ({
@@ -74,19 +84,26 @@ const useKiddoQuestStore = create((set, get) => ({
       if (!user) {
         return { success: false, error: 'Not authenticated' };
       }
-      
+
+      // Validate PIN format
+      const validation = validatePIN(pin);
+      if (!validation.isValid) {
+        logValidationErrors('setParentPin', validation.errors);
+        return { success: false, error: validation.errors.join(', ') };
+      }
+
       // Hash the PIN with bcrypt for security
       const saltRounds = 12;
       const hashedPin = await bcrypt.hash(pin, saltRounds);
-      
+
       await updateDoc(doc(db, 'users', user.uid), {
         parentPin: hashedPin,
         pinUpdatedAt: serverTimestamp()
       });
-      
+
       return { success: true };
     } catch (error) {
-      console.error('Error setting PIN:', error);
+      logger.error('Error setting PIN', error);
       return { success: false, error: error.message };
     }
   },
@@ -210,18 +227,18 @@ const useKiddoQuestStore = create((set, get) => ({
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      
-      // Check if admin user (thetangstr@gmail.com)
-      const isAdminEmail = user.email.toLowerCase() === 'thetangstr@gmail.com';
-      
-      console.log('User logged in:', user.email, 'Is admin:', isAdminEmail);
-      
-      // Create or update user document (simplified approach)
-      const parentUser = { 
-        uid: user.uid, 
-        email: user.email, 
-        role: isAdminEmail ? 'admin' : 'parent',
-        isAdmin: isAdminEmail
+
+      // Check if user is admin via database
+      const userIsAdmin = await isUserAdmin(user.uid);
+
+      logger.info('Google login successful', { email: user.email, isAdmin: userIsAdmin });
+
+      // Create or update user document (database-driven)
+      const parentUser = {
+        uid: user.uid,
+        email: user.email,
+        role: userIsAdmin ? 'admin' : 'parent',
+        isAdmin: userIsAdmin
       };
       
       // Always create/update the user document to ensure it exists
@@ -325,17 +342,17 @@ const useKiddoQuestStore = create((set, get) => ({
       if (user) {
         // User is signed in
         try {
-          // Check if admin user (thetangstr@gmail.com)
-          const isAdminEmail = user.email.toLowerCase() === 'thetangstr@gmail.com';
-          
-          console.log('Auth state changed - User:', user.email, 'Is admin:', isAdminEmail);
-          
-          // Create or update user document (simplified approach)
-          const parentUser = { 
-            uid: user.uid, 
-            email: user.email, 
-            role: isAdminEmail ? 'admin' : 'parent',
-            isAdmin: isAdminEmail
+          // Check if user is admin via database
+          const userIsAdmin = await isUserAdmin(user.uid);
+
+          logger.info('Auth state changed', { email: user.email, isAdmin: userIsAdmin });
+
+          // Create or update user document (database-driven)
+          const parentUser = {
+            uid: user.uid,
+            email: user.email,
+            role: userIsAdmin ? 'admin' : 'parent',
+            isAdmin: userIsAdmin
           };
           
           // Always create/update the user document to ensure it exists
@@ -695,35 +712,46 @@ const useKiddoQuestStore = create((set, get) => ({
   addChildProfile: async (profileData) => {
     const parentId = get().currentUser?.uid;
     if (!parentId) return;
-    
+
     set({ isLoadingData: true });
-    
+
     try {
+      // Validate input data
+      const validation = validateChildProfile(profileData);
+      if (!validation.isValid) {
+        logValidationErrors('addChildProfile', validation.errors);
+        set({ isLoadingData: false });
+        throw new Error(validation.errors.join(', '));
+      }
+
+      // Sanitize string fields
+      const sanitized = sanitizeData(profileData, ['name']);
+
       // Handle avatar image upload if it's a file
-      let avatarUrl = profileData.avatar;
-      
-      if (profileData.avatarFile) {
-        const storageRef = ref(storage, `avatars/${parentId}/${Date.now()}_${profileData.avatarFile.name}`);
-        await uploadBytes(storageRef, profileData.avatarFile);
+      let avatarUrl = sanitized.avatar;
+
+      if (sanitized.avatarFile) {
+        const storageRef = ref(storage, `avatars/${parentId}/${Date.now()}_${sanitized.avatarFile.name}`);
+        await uploadBytes(storageRef, sanitized.avatarFile);
         avatarUrl = await getDownloadURL(storageRef);
       }
-      
+
       // Add child profile to Firestore
       const childProfileRef = await addDoc(collection(db, 'childProfiles'), {
-        name: profileData.name,
+        name: sanitized.name,
         avatar: avatarUrl,
-        xp: profileData.xp || 0,
+        xp: sanitized.xp || 0,
         parentId,
-        theme: profileData.theme || 'default',
+        theme: sanitized.theme || 'default',
         createdAt: serverTimestamp()
       });
       
       const newChildProfile = {
         id: childProfileRef.id,
-        name: profileData.name,
+        name: sanitized.name,
         avatar: avatarUrl,
-        xp: profileData.xp || 0,
-        theme: profileData.theme || 'default',
+        xp: sanitized.xp || 0,
+        theme: sanitized.theme || 'default',
         parentId,
         createdAt: new Date().toISOString()
       };
@@ -744,20 +772,31 @@ const useKiddoQuestStore = create((set, get) => ({
   
   updateChildProfile: async (childId, updatedData) => {
     set({ isLoadingData: true });
-    
+
     try {
+      // Validate input data
+      const validation = validateChildProfile(updatedData);
+      if (!validation.isValid) {
+        logValidationErrors('updateChildProfile', validation.errors);
+        set({ isLoadingData: false });
+        throw new Error(validation.errors.join(', '));
+      }
+
+      // Sanitize string fields
+      const sanitized = sanitizeData(updatedData, ['name']);
+
       // Handle avatar image upload if it's a file
-      let avatarUrl = updatedData.avatar;
-      
-      if (updatedData.avatarFile) {
+      let avatarUrl = sanitized.avatar;
+
+      if (sanitized.avatarFile) {
         const parentId = get().currentUser?.uid;
-        const storageRef = ref(storage, `avatars/${parentId}/${Date.now()}_${updatedData.avatarFile.name}`);
-        await uploadBytes(storageRef, updatedData.avatarFile);
+        const storageRef = ref(storage, `avatars/${parentId}/${Date.now()}_${sanitized.avatarFile.name}`);
+        await uploadBytes(storageRef, sanitized.avatarFile);
         avatarUrl = await getDownloadURL(storageRef);
       }
-      
+
       // Prepare data for update (remove avatarFile which is not needed in Firestore)
-      const { avatarFile, ...dataToUpdate } = updatedData;
+      const { avatarFile, ...dataToUpdate } = sanitized;
       if (avatarUrl) dataToUpdate.avatar = avatarUrl;
       
       // Update in Firestore
@@ -832,21 +871,32 @@ const useKiddoQuestStore = create((set, get) => ({
   addQuest: async (questData) => {
     const parentId = get().currentUser?.uid;
     if (!parentId) return;
-    
+
     set({ isLoadingData: true });
-    
+
     try {
+      // Validate input data
+      const validation = validateQuest(questData);
+      if (!validation.isValid) {
+        logValidationErrors('addQuest', validation.errors);
+        set({ isLoadingData: false });
+        throw new Error(validation.errors.join(', '));
+      }
+
+      // Sanitize string fields
+      const sanitized = sanitizeData(questData, ['title', 'description']);
+
       // Handle image upload if it's a file
       let imageUrl = null;
-      
-      if (questData.imageFile) {
-        const storageRef = ref(storage, `quests/${parentId}/${Date.now()}_${questData.imageFile.name}`);
-        await uploadBytes(storageRef, questData.imageFile);
+
+      if (sanitized.imageFile) {
+        const storageRef = ref(storage, `quests/${parentId}/${Date.now()}_${sanitized.imageFile.name}`);
+        await uploadBytes(storageRef, sanitized.imageFile);
         imageUrl = await getDownloadURL(storageRef);
       }
-      
+
       // Prepare data for Firestore (remove imageFile which is not needed in Firestore)
-      const { imageFile, ...dataToAdd } = questData;
+      const { imageFile, ...dataToAdd } = sanitized;
       
       // Add quest to Firestore
       const questRef = await addDoc(collection(db, 'quests'), {
@@ -882,20 +932,31 @@ const useKiddoQuestStore = create((set, get) => ({
   
   updateQuest: async (questId, updatedData) => {
     set({ isLoadingData: true });
-    
+
     try {
+      // Validate input data
+      const validation = validateQuest(updatedData);
+      if (!validation.isValid) {
+        logValidationErrors('updateQuest', validation.errors);
+        set({ isLoadingData: false });
+        throw new Error(validation.errors.join(', '));
+      }
+
+      // Sanitize string fields
+      const sanitized = sanitizeData(updatedData, ['title', 'description']);
+
       // Handle image upload if it's a file
-      let imageUrl = updatedData.image;
-      
-      if (updatedData.imageFile) {
+      let imageUrl = sanitized.image;
+
+      if (sanitized.imageFile) {
         const parentId = get().currentUser?.uid;
-        const storageRef = ref(storage, `quests/${parentId}/${Date.now()}_${updatedData.imageFile.name}`);
-        await uploadBytes(storageRef, updatedData.imageFile);
+        const storageRef = ref(storage, `quests/${parentId}/${Date.now()}_${sanitized.imageFile.name}`);
+        await uploadBytes(storageRef, sanitized.imageFile);
         imageUrl = await getDownloadURL(storageRef);
       }
-      
+
       // Prepare data for update (remove imageFile which is not needed in Firestore)
-      const { imageFile, ...dataToUpdate } = updatedData;
+      const { imageFile, ...dataToUpdate } = sanitized;
       if (imageUrl) dataToUpdate.image = imageUrl;
       
       // Update in Firestore
@@ -952,21 +1013,32 @@ const useKiddoQuestStore = create((set, get) => ({
   addReward: async (rewardData) => {
     const parentId = get().currentUser?.uid;
     if (!parentId) return;
-    
+
     set({ isLoadingData: true });
-    
+
     try {
+      // Validate input data
+      const validation = validateReward(rewardData);
+      if (!validation.isValid) {
+        logValidationErrors('addReward', validation.errors);
+        set({ isLoadingData: false });
+        throw new Error(validation.errors.join(', '));
+      }
+
+      // Sanitize string fields
+      const sanitized = sanitizeData(rewardData, ['name', 'description']);
+
       // Handle image upload if it's a file
       let imageUrl = null;
-      
-      if (rewardData.imageFile) {
-        const storageRef = ref(storage, `rewards/${parentId}/${Date.now()}_${rewardData.imageFile.name}`);
-        await uploadBytes(storageRef, rewardData.imageFile);
+
+      if (sanitized.imageFile) {
+        const storageRef = ref(storage, `rewards/${parentId}/${Date.now()}_${sanitized.imageFile.name}`);
+        await uploadBytes(storageRef, sanitized.imageFile);
         imageUrl = await getDownloadURL(storageRef);
       }
-      
+
       // Prepare data for Firestore (remove imageFile which is not needed in Firestore)
-      const { imageFile, ...dataToAdd } = rewardData;
+      const { imageFile, ...dataToAdd } = sanitized;
       
       // Prepare reward data, filtering out undefined values
       const firestoreData = {
@@ -1015,23 +1087,34 @@ const useKiddoQuestStore = create((set, get) => ({
   
   updateReward: async (rewardId, updatedData) => {
     set({ isLoadingData: true });
-    
+
     try {
       const reward = get().rewards.find(r => r.id === rewardId);
       if (!reward) throw new Error('Reward not found');
-      
+
+      // Validate input data
+      const validation = validateReward(updatedData);
+      if (!validation.isValid) {
+        logValidationErrors('updateReward', validation.errors);
+        set({ isLoadingData: false });
+        throw new Error(validation.errors.join(', '));
+      }
+
+      // Sanitize string fields
+      const sanitized = sanitizeData(updatedData, ['name', 'description']);
+
       // Handle image upload if it's a file
       let imageUrl = null;
-      
-      if (updatedData.imageFile) {
+
+      if (sanitized.imageFile) {
         const parentId = get().currentUser?.uid;
-        const storageRef = ref(storage, `rewards/${parentId}/${Date.now()}_${updatedData.imageFile.name}`);
-        await uploadBytes(storageRef, updatedData.imageFile);
+        const storageRef = ref(storage, `rewards/${parentId}/${Date.now()}_${sanitized.imageFile.name}`);
+        await uploadBytes(storageRef, sanitized.imageFile);
         imageUrl = await getDownloadURL(storageRef);
       }
-      
+
       // Prepare data for Firestore (remove imageFile which is not needed in Firestore)
-      const { imageFile, ...dataToUpdate } = updatedData;
+      const { imageFile, ...dataToUpdate } = sanitized;
       
       // Update reward in Firestore
       await updateDoc(doc(db, 'rewards', rewardId), {

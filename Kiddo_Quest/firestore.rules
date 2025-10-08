@@ -1,9 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is admin (using email check to avoid circular permissions)
+    // Helper function to check if user is admin (database-driven)
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'thetangstr@gmail.com';
+      return request.auth != null &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
     }
     
     // Helper function to check if user owns the resource
