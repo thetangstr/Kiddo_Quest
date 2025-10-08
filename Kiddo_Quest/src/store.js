@@ -728,19 +728,39 @@ const useKiddoQuestStore = create((set, get) => ({
         ...doc.data()
       }));
       
-      // Fetch today's quest completions
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const completionsQuery = query(
-        collection(db, 'questCompletions'),
-        where('parentId', '==', parentId),
-        where('completedDate', '>=', today)
-      );
-      const completionsSnap = await getDocs(completionsQuery);
-      const fetchedCompletions = completionsSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // Fetch today's quest completions - with fallback while index builds
+      let fetchedCompletions = [];
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const completionsQuery = query(
+          collection(db, 'questCompletions'),
+          where('parentId', '==', parentId),
+          where('completedDate', '>=', today)
+        );
+        const completionsSnap = await getDocs(completionsQuery);
+        fetchedCompletions = completionsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      } catch (indexError) {
+        console.log('Index still building, fetching completions without date filter...');
+        // Fallback: fetch all completions for this parent and filter client-side
+        const fallbackQuery = query(
+          collection(db, 'questCompletions'),
+          where('parentId', '==', parentId)
+        );
+        const fallbackSnap = await getDocs(fallbackQuery);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        fetchedCompletions = fallbackSnap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(completion => {
+            const completedDate = completion.completedDate?.toDate?.() || new Date(completion.completedDate);
+            return completedDate >= today;
+          });
+      }
       
       set({ 
         childProfiles: fetchedChildProfiles,
@@ -1058,8 +1078,8 @@ const useKiddoQuestStore = create((set, get) => ({
       
       // Prepare data for Firestore (remove imageFile which needs special handling)
       const { imageFile, ...dataToAdd } = rewardData;
-      
-      // Add reward to Firestore
+
+      // Prepare reward data, filtering out undefined values
       const firestoreData = {
         ...dataToAdd,
         parentId,
@@ -1067,10 +1087,15 @@ const useKiddoQuestStore = create((set, get) => ({
         image: imageUrl,
         createdAt: serverTimestamp()
       };
-      
-      
+
+      // Only add source if it's defined
+      if (dataToAdd.source !== undefined && dataToAdd.source !== null) {
+        firestoreData.source = dataToAdd.source;
+      }
+
+      // Add reward to Firestore
       const rewardRef = await addDoc(collection(db, 'rewards'), firestoreData);
-      
+
       const newReward = {
         id: rewardRef.id,
         ...dataToAdd,
@@ -1079,9 +1104,13 @@ const useKiddoQuestStore = create((set, get) => ({
         image: imageUrl,
         createdAt: new Date().toISOString()
       };
-      
-      
-      set(state => ({ 
+
+      // Only add source to local state if it's defined
+      if (dataToAdd.source !== undefined && dataToAdd.source !== null) {
+        newReward.source = dataToAdd.source;
+      }
+
+      set(state => ({
         rewards: [...state.rewards, newReward],
         isLoadingData: false,
         currentView: 'manageRewards'

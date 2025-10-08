@@ -17,14 +17,24 @@ export default function FeedbackModal({ open, onClose, user }) {
     e.preventDefault();
     setLoading(true);
     setError('');
+    
+    // Check if user is authenticated
+    if (!user?.uid) {
+      setError('You must be logged in to submit feedback. Please log in and try again.');
+      setLoading(false);
+      return;
+    }
+    
     try {
+      console.log('Submitting feedback with userId:', user.uid);
+      
       // Ensure the collection exists by attempting to create it
       const feedbackCollection = collection(db, 'feedbackReports');
       
       // Add the document to the collection
       await addDoc(feedbackCollection, {
-        userId: user?.uid || 'anonymous',  // Add userId field for security rules
-        userEmail: user?.email || '',
+        userId: user.uid,
+        userEmail: user.email || '',
         description,
         steps,
         severity,
@@ -39,6 +49,12 @@ export default function FeedbackModal({ open, onClose, user }) {
       setSeverity('low');
     } catch (err) {
       console.error('Error submitting feedback:', err);
+      console.error('Error details:', { 
+        code: err.code, 
+        message: err.message,
+        userId: user?.uid,
+        userEmail: user?.email 
+      });
       setError(`Failed to submit feedback: ${err.message || 'Please try again.'}`);
     }
     setLoading(false);

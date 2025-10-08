@@ -26,7 +26,10 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:beta": "cp .env.beta .env && npm run build",
+    "build:production": "cp .env.production .env && npm run build",
     "test": "react-scripts test",
+    "test:coverage": "npm test -- --coverage --watchAll=false",
     "eject": "react-scripts eject",
     "test:e2e": "playwright test",
     "test:e2e:minimal": "playwright test tests/minimal-ci-test.spec.js",
@@ -37,6 +40,8 @@
     "test:mcp:auto": "node scripts/playwright-mcp-integration.js --auto",
     "test:mcp:hook": "node scripts/auto-playwright-mcp-hook.js",
     "test:mcp:hook:once": "node scripts/auto-playwright-mcp-hook.js --once",
+    "deploy:beta": "firebase use beta && npm run build:beta && firebase deploy",
+    "deploy:production": "firebase use production && npm run build:production && firebase deploy",
     "predeploy": "npm run test:e2e",
     "deploy": "npm run build && firebase deploy"
   },
