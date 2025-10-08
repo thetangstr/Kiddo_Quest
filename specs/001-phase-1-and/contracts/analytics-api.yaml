@@ -1,0 +1,630 @@
+openapi: 3.0.0
+info:
+  title: KiddoQuest Analytics & Parent Tools API
+  version: 1.0.0
+  description: API endpoints for Phase 2 analytics and parent control features
+
+paths:
+  /api/analytics/reports:
+    get:
+      summary: Get analytics reports
+      parameters:
+        - name: familyId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: Analytics report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsReport'
+    
+    post:
+      summary: Generate custom analytics report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                familyId:
+                  type: string
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                filters:
+                  type: object
+                period:
+                  type: object
+      responses:
+        202:
+          description: Report generation started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportId:
+                    type: string
+                  estimatedTime:
+                    type: integer
+
+  /api/analytics/insights/{familyId}:
+    get:
+      summary: Get behavioral insights
+      parameters:
+        - name: familyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Behavioral insights
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  insights:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Insight'
+                  recommendations:
+                    type: array
+                    items:
+                      type: string
+
+  /api/rewards/{rewardId}/price:
+    put:
+      summary: Update reward dynamic pricing
+      parameters:
+        - name: rewardId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                xpCost:
+                  type: integer
+                multiplier:
+                  type: number
+                  format: float
+                enableDynamic:
+                  type: boolean
+      responses:
+        200:
+          description: Price updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reward'
+
+  /api/penalties/rules:
+    get:
+      summary: Get penalty rules
+      parameters:
+        - name: familyId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: List of penalty rules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PenaltyRule'
+    
+    post:
+      summary: Create penalty rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PenaltyRule'
+      responses:
+        201:
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PenaltyRule'
+
+  /api/penalties/apply:
+    post:
+      summary: Apply penalty to child
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                childId:
+                  type: string
+                ruleId:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        200:
+          description: Penalty applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  penaltyApplied:
+                    type: string
+                  redemptionRequired:
+                    type: boolean
+                  redemptionQuestId:
+                    type: string
+
+  /api/family/goals:
+    get:
+      summary: Get family goals
+      parameters:
+        - name: familyId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: active
+          in: query
+          schema:
+            type: boolean
+      responses:
+        200:
+          description: List of family goals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goals:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FamilyGoal'
+    
+    post:
+      summary: Create family goal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FamilyGoal'
+      responses:
+        201:
+          description: Goal created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyGoal'
+
+  /api/family/members:
+    get:
+      summary: Get family members with roles
+      parameters:
+        - name: familyId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Family members list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  parents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Parent'
+                  children:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChildProfile'
+                  caregivers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Caregiver'
+
+  /api/quests/bulk:
+    post:
+      summary: Bulk create or update quests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operation:
+                  type: string
+                  enum: [create, update, delete]
+                quests:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Quest'
+      responses:
+        200:
+          description: Bulk operation completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processed:
+                    type: integer
+                  succeeded:
+                    type: integer
+                  failed:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: object
+
+  /api/notifications/preferences:
+    get:
+      summary: Get notification preferences
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Notification preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreference'
+    
+    put:
+      summary: Update notification preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreference'
+      responses:
+        200:
+          description: Preferences updated
+
+components:
+  schemas:
+    AnalyticsReport:
+      type: object
+      properties:
+        id:
+          type: string
+        period:
+          type: object
+          properties:
+            type:
+              type: string
+            startDate:
+              type: string
+              format: date
+            endDate:
+              type: string
+              format: date
+        metrics:
+          type: object
+          properties:
+            completionRate:
+              type: number
+              format: float
+            totalQuests:
+              type: integer
+            completedQuests:
+              type: integer
+            totalXPEarned:
+              type: integer
+            categoryBreakdown:
+              type: array
+              items:
+                type: object
+            timeDistribution:
+              type: array
+              items:
+                type: object
+            childPerformance:
+              type: array
+              items:
+                type: object
+            trends:
+              type: object
+        insights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Insight'
+        generatedAt:
+          type: string
+          format: date-time
+
+    Insight:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [suggestion, achievement, concern]
+        message:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high]
+        actionable:
+          type: boolean
+        suggestedAction:
+          type: string
+
+    Reward:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        xpCost:
+          type: integer
+        dynamicPricing:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            minCost:
+              type: integer
+            maxCost:
+              type: integer
+            currentMultiplier:
+              type: number
+              format: float
+
+    PenaltyRule:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        enabled:
+          type: boolean
+        trigger:
+          type: object
+          properties:
+            type:
+              type: string
+            questCategory:
+              type: string
+            timeframe:
+              type: string
+        penalty:
+          type: object
+          properties:
+            type:
+              type: string
+            amount:
+              type: integer
+        appliedTo:
+          type: array
+          items:
+            type: string
+
+    FamilyGoal:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        target:
+          type: object
+          properties:
+            type:
+              type: string
+            value:
+              type: integer
+            period:
+              type: string
+        progress:
+          type: object
+          properties:
+            current:
+              type: integer
+            percentage:
+              type: number
+              format: float
+            contributions:
+              type: array
+              items:
+                type: object
+        reward:
+          type: object
+        active:
+          type: boolean
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+
+    Parent:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [admin, parent]
+        permissions:
+          type: array
+          items:
+            type: string
+
+    ChildProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        age:
+          type: integer
+        level:
+          type: integer
+        currentXP:
+          type: integer
+        totalXP:
+          type: integer
+        badges:
+          type: array
+          items:
+            type: string
+        activeStreak:
+          type: integer
+        theme:
+          type: string
+
+    Caregiver:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        addedBy:
+          type: string
+        addedAt:
+          type: string
+          format: date-time
+
+    NotificationPreference:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        channel:
+          type: object
+          properties:
+            push:
+              type: boolean
+            email:
+              type: boolean
+            inApp:
+              type: boolean
+        types:
+          type: object
+          properties:
+            morningMotivation:
+              type: boolean
+            questReminders:
+              type: boolean
+            eveningSummary:
+              type: boolean
+            achievements:
+              type: boolean
+            weeklyReport:
+              type: boolean
+        schedule:
+          type: object
+          properties:
+            morningTime:
+              type: string
+            eveningTime:
+              type: string
+            timezone:
+              type: string
+        quietHours:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            start:
+              type: string
+            end:
+              type: string
+
+    Quest:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        xpReward:
+          type: integer
+        category:
+          type: string
+        difficulty:
+          type: string
+        schedule:
+          type: object
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []

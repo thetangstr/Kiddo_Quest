@@ -1,0 +1,357 @@
+openapi: 3.0.0
+info:
+  title: KiddoQuest Gamification API
+  version: 1.0.0
+  description: API endpoints for Phase 1 gamification features
+
+paths:
+  /api/child/{childId}/level:
+    get:
+      summary: Get child's current level and XP
+      parameters:
+        - name: childId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Level information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LevelResponse'
+        404:
+          description: Child not found
+
+  /api/child/{childId}/badges:
+    get:
+      summary: Get child's earned badges
+      parameters:
+        - name: childId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: List of badges
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  badges:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Badge'
+                  nextAvailable:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Badge'
+    
+    post:
+      summary: Award badge to child
+      parameters:
+        - name: childId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                badgeId:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        201:
+          description: Badge awarded
+        400:
+          description: Badge criteria not met
+        409:
+          description: Badge already earned
+
+  /api/child/{childId}/streak:
+    get:
+      summary: Get child's streak information
+      parameters:
+        - name: childId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Streak information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreakResponse'
+
+  /api/quests/templates:
+    get:
+      summary: Get quest templates
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [chores, homework, behavior, creativity]
+        - name: ageRange
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QuestTemplate'
+    
+    post:
+      summary: Create quest from template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                templateId:
+                  type: string
+                childId:
+                  type: string
+                customizations:
+                  type: object
+      responses:
+        201:
+          description: Quest created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quest'
+
+  /api/quests/{questId}/photo:
+    post:
+      summary: Upload photo verification
+      parameters:
+        - name: questId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                caption:
+                  type: string
+      responses:
+        201:
+          description: Photo uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoVerification'
+
+  /api/quests/daily:
+    get:
+      summary: Get quest of the day
+      parameters:
+        - name: childId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Featured quest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quest'
+
+components:
+  schemas:
+    LevelResponse:
+      type: object
+      properties:
+        level:
+          type: integer
+        title:
+          type: string
+        currentXP:
+          type: integer
+        xpToNext:
+          type: integer
+        totalXP:
+          type: integer
+        progress:
+          type: number
+          format: float
+        privileges:
+          type: array
+          items:
+            type: string
+        nextLevel:
+          $ref: '#/components/schemas/Level'
+
+    Level:
+      type: object
+      properties:
+        number:
+          type: integer
+        title:
+          type: string
+        xpRequired:
+          type: integer
+        icon:
+          type: string
+        color:
+          type: string
+
+    Badge:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum: [consistency, achievement, helping, speed, teamwork]
+        tier:
+          type: integer
+          minimum: 1
+          maximum: 3
+        icon:
+          type: string
+        earnedAt:
+          type: string
+          format: date-time
+        progress:
+          type: number
+          format: float
+
+    StreakResponse:
+      type: object
+      properties:
+        currentStreak:
+          type: integer
+        longestStreak:
+          type: integer
+        lastActivityDate:
+          type: string
+          format: date
+        streakType:
+          type: string
+        willBreakAt:
+          type: string
+          format: date-time
+        categoryStreaks:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              count:
+                type: integer
+
+    QuestTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        suggestedXP:
+          type: integer
+        suggestedDifficulty:
+          type: string
+        ageRange:
+          type: object
+          properties:
+            min:
+              type: integer
+            max:
+              type: integer
+        popularity:
+          type: integer
+        icon:
+          type: string
+
+    Quest:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        xpReward:
+          type: integer
+        category:
+          type: string
+        difficulty:
+          type: string
+        schedule:
+          type: object
+        photoRequired:
+          type: boolean
+        isQuestOfDay:
+          type: boolean
+        dueDate:
+          type: string
+          format: date-time
+
+    PhotoVerification:
+      type: object
+      properties:
+        id:
+          type: string
+        questId:
+          type: string
+        imageUrl:
+          type: string
+        thumbnailUrl:
+          type: string
+        caption:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []

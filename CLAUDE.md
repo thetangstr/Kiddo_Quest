@@ -19,7 +19,11 @@ npm start                    # Start development server (port 3000)
 npm run build               # Production build
 npm test                    # Unit tests
 npm run test:e2e           # End-to-end tests with Playwright
+npm run test:e2e:minimal   # Minimal CI tests
 npm run test:e2e:ui        # Interactive E2E tests
+npm run test:auto          # Auto-run tests on file changes
+npm run test:mcp           # Playwright MCP integration suite
+npm run test:mcp:auto      # Auto-run MCP tests
 
 # Deployment
 npm run predeploy          # Runs E2E tests before deploy
@@ -61,7 +65,7 @@ firebase deploy --only functions  # Deploy functions only
 - **Authentication**: Firebase Auth with email/password and Google OAuth
 - **Database**: Firestore for real-time data sync
 - **Storage**: Firebase Storage for images (avatars, quest/reward images)
-- **Functions**: Node.js functions for Amazon API integration and server-side logic
+- **Functions**: Node.js functions for scheduled tasks, analytics processing, and notifications
 
 ### Core Data Models
 - **Users**: Parent/admin accounts with role-based access
@@ -72,10 +76,13 @@ firebase deploy --only functions  # Deploy functions only
 
 ### Key Features
 - **Role-based Access**: Admin, parent, and child user types
-- **Amazon Integration**: Product search via Amazon Product Advertising API
+- **Gamification System**: Levels, badges, streaks, and visual rewards (Phase 1)
+- **Analytics Dashboard**: Comprehensive insights and behavioral metrics (Phase 2)
 - **PIN Security**: Bcrypt-hashed PINs for parent verification
 - **Real-time Sync**: Firestore real-time listeners for live updates
 - **Cross-platform**: Shared component patterns between web and mobile
+- **Age-Appropriate Themes**: Customized experiences for 4-7, 8-11, 12+ age groups
+- **Family Goals**: Collaborative objectives with progress tracking
 
 ## File Structure
 
@@ -141,7 +148,6 @@ KiddoQuest_mobile/             # Mobile application
 ### Required Environment Variables
 **Web App (.env)**:
 - `REACT_APP_FIREBASE_*` - Firebase configuration
-- `REACT_APP_AMAZON_*` - Amazon Product Advertising API
 
 **Mobile App (.env)**:
 - `EXPO_PUBLIC_FIREBASE_*` - Firebase configuration
@@ -166,10 +172,11 @@ KiddoQuest_mobile/             # Mobile application
 3. Check network tab for failed requests
 4. Use Firebase emulator for local development
 
-### Amazon Integration
-- Product search handled via Firebase Functions
-- Fallback to mock data when API unavailable
-- Partner tag required for affiliate links
+### User Feedback System
+- Feedback collection in-app with categorization
+- Admin dashboard for feedback triage
+- Auto-sync to GitHub Issues when marked `ready_for_dev`
+- Hourly automated workflow via GitHub Actions
 
 ## Security Considerations
 
@@ -202,3 +209,33 @@ KiddoQuest_mobile/             # Mobile application
 - **Required Secrets**: `FIREBASE_TOKEN` (service account JSON), `EXPO_TOKEN`
 
 Use deployment guides in `DEPLOYMENT_GUIDE.md`, `KiddoQuest_mobile/BUILD_GUIDE.md`, and `MOBILE_CI_CD_SETUP.md` for detailed instructions.
+
+## Slash Commands
+
+Custom slash commands available via `.claude/commands/`:
+- `/plan` - Execute implementation planning workflow
+- `/specify` - Create/update feature specification
+- `/clarify` - Identify underspecified areas in specs
+- `/tasks` - Generate actionable dependency-ordered tasks
+- `/implement` - Execute implementation plan from tasks.md
+- `/analyze` - Cross-artifact consistency analysis
+- `/constitution` - Create/update project constitution
+
+## Recent Changes
+
+### 2025-01-02: Phase 1 & 2 Implementation Planning
+- **Gamification System**: Added levels, badges, streaks with XP progression
+- **Analytics Dashboard**: Implemented parent insights and behavioral metrics
+- **Age Capture**: Added child age field for appropriate theming
+- **Quest Enhancements**: Categories, difficulty levels, photo verification
+- **Family Management**: Multi-parent support, family goals, role-based access
+
+### 2025-01-01: Feedback CI/CD Pipeline
+- **Feedback Manager**: Admin UI for triaging user feedback
+- **GitHub Integration**: Auto-sync feedback to GitHub issues when ready_for_dev
+- **Workflow Automation**: Hourly sync via GitHub Actions
+
+### 2024-12-31: Amazon Feature Removal
+- **Removed**: All Amazon Product API integration code
+- **Fixed**: Undefined source field error in Firestore operations
+- **Cleaned**: Removed AmazonBrowserModal and related components

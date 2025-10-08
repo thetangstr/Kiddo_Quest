@@ -9,6 +9,32 @@ const feedbackWebhook = require('./feedbackWebhook');
 exports.triggerFeedbackSync = feedbackWebhook.triggerFeedbackSync;
 exports.onFeedbackStatusChange = feedbackWebhook.onFeedbackStatusChange;
 
+// Import scheduled tasks functions
+const scheduledTasks = require('./scheduledTasks');
+exports.applyDailyPenalties = scheduledTasks.applyDailyPenalties;
+exports.applyPenalty = scheduledTasks.applyPenalty;
+exports.appealPenalty = scheduledTasks.appealPenalty;
+
+// Import analytics processor functions
+const analyticsProcessor = require('./analyticsProcessor');
+exports.generateDailyAnalytics = analyticsProcessor.generateDailyAnalytics;
+exports.generateWeeklyAnalytics = analyticsProcessor.generateWeeklyAnalytics;
+exports.updateAnalyticsOnQuestCompletion = analyticsProcessor.updateAnalyticsOnQuestCompletion;
+exports.updateAnalyticsOnRewardRedemption = analyticsProcessor.updateAnalyticsOnRewardRedemption;
+exports.generateAnalyticsReport = analyticsProcessor.generateAnalyticsReport;
+
+// Import notifications functions
+const notifications = require('./notifications');
+exports.sendQuestReminders = notifications.sendQuestReminders;
+exports.sendDailyMotivation = notifications.sendDailyMotivation;
+exports.sendEveningSummary = notifications.sendEveningSummary;
+exports.sendQuestCompletionNotification = notifications.sendQuestCompletionNotification;
+exports.sendLevelUpNotification = notifications.sendLevelUpNotification;
+exports.sendFamilyGoalProgressNotification = notifications.sendFamilyGoalProgressNotification;
+exports.sendPenaltyNotification = notifications.sendPenaltyNotification;
+exports.sendStreakNotification = notifications.sendStreakNotification;
+exports.sendCustomNotification = notifications.sendCustomNotification;
+
 // Create transporter for sending emails
 const transporter = nodemailer.createTransport({
   service: 'gmail',

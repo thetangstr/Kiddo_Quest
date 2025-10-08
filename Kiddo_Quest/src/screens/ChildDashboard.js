@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Gift, CheckCircle, ArrowLeft, Award, Lock, Palette } from 'lucide-react';
+import { Shield, Gift, CheckCircle, ArrowLeft, Award, Lock, Palette, Star, Fire } from 'lucide-react';
 import useKiddoQuestStore from '../store';
 import { Button, Card, XPProgressBar, LoadingSpinner, renderLucideIcon } from '../components/UI';
 import ReactConfetti from 'react-confetti';
 import PinModal from '../components/PinModal';
 import { getThemeById, getThemeClasses, getThemeAccessibilityOptions, THEMES } from '../utils/themeManager';
 import { respectReducedMotion, addFocusStyles } from '../utils/accessibilityUtils';
+// NEW GAMIFICATION IMPORTS
+import LevelDisplay from '../components/gamification/LevelDisplay';
+import BadgeGallery from '../components/gamification/BadgeGallery';
+import StreakCounter from '../components/gamification/StreakCounter';
+import QuestOfDay from '../components/gamification/QuestOfDay';
+import { getLevelDetails } from '../utils/xpCalculator';
 
 // Child Dashboard Component
 const ChildDashboard = ({ onViewChange }) => {
@@ -291,6 +297,55 @@ const ChildDashboard = ({ onViewChange }) => {
           <h1 className={`text-3xl font-bold ${textClasses}`}>{childProfile.name}'s Adventure</h1>
         </div>
       </div>
+      
+      {/* NEW GAMIFICATION SECTION */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* Level Display */}
+        <div className="md:col-span-2">
+          <LevelDisplay 
+            totalXP={childProfile.totalXP || childProfile.xp || 0}
+            showProgress={true}
+            animated={!accessSettings.reducedMotion}
+            className="h-full"
+          />
+        </div>
+        
+        {/* Streak Counter */}
+        <div>
+          <StreakCounter 
+            currentStreak={childProfile.activeStreak || 0}
+            longestStreak={childProfile.longestStreak || 0}
+            animated={!accessSettings.reducedMotion}
+            size="medium"
+            className="h-full"
+          />
+        </div>
+      </div>
+      
+      {/* Quest of the Day */}
+      {pendingQuests.length > 0 && (
+        <div className="mb-6">
+          <QuestOfDay 
+            quest={pendingQuests[0]} // Featured quest
+            onClaim={handleClaimQuest}
+            isLoading={claimingQuestId === pendingQuests[0]?.id}
+            childProfile={childProfile}
+          />
+        </div>
+      )}
+      
+      {/* Recent Badges */}
+      {childProfile.badges && childProfile.badges.length > 0 && (
+        <div className="mb-6">
+          <BadgeGallery 
+            earnedBadges={childProfile.badges.slice(-3)} // Show last 3 earned badges
+            compact={true}
+            showProgress={false}
+            title="Recent Achievements"
+            className="bg-gradient-to-r from-purple-50 to-pink-50"
+          />
+        </div>
+      )}
       
       {/* XP Progress */}
       <Card className={`${cardClasses} shadow-md p-4 mb-6 flex justify-between items-center rounded-b-lg`}>

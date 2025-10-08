@@ -177,9 +177,7 @@ const ParentDashboard = () => {
                     variant="outline" 
                     className="w-full" 
                     onClick={() => {
-                      console.log('Selecting child for dashboard:', child.id);
                       selectChildForDashboard(child.id);
-                      // Explicitly navigate to child dashboard view
                       navigateTo('childDashboard');
                     }}
                   >

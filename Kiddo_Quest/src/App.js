@@ -162,13 +162,6 @@ function App() {
   
   // Render the appropriate view based on currentView state
   const renderView = () => {
-    // Add debugging to help troubleshoot view rendering
-    console.log('Rendering view:', { 
-      currentView, 
-      isLoadingAuth, 
-      hasCurrentUser: !!currentUser,
-      userEmail: currentUser?.email
-    });
     
     // Wrap components with PIN verification if needed
     const wrapWithPinCheck = (Component) => {
@@ -191,7 +184,6 @@ function App() {
         return <RegistrationScreen />;
       case 'adminDashboard':
         // Admin users still see ParentDashboard but with additional admin controls
-        console.log('Rendering admin dashboard for admin user:', currentUser?.email);
         return <ParentDashboard />;
       case 'parentDashboard':
         return <ParentDashboard />;
@@ -228,12 +220,6 @@ function App() {
     }
   };
   
-  console.log('App render state:', { 
-    currentView, 
-    isLoadingAuth, 
-    hasCurrentUser: !!currentUser,
-    userEmail: currentUser?.email
-  });
 
   return (
     <Router>

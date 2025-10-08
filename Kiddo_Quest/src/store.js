@@ -24,6 +24,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage, googleProvider } from './firebase';
 import { SUBSCRIPTION_TIERS, FEATURES, isFeatureAvailable } from './utils/subscriptionManager';
 import { verifyInvitation, acceptInvitation } from './utils/invitationManager';
+import logger from './utils/logger';
 
 // Zustand Store for Global State Management
 const useKiddoQuestStore = create((set, get) => ({
@@ -63,7 +64,7 @@ const useKiddoQuestStore = create((set, get) => ({
       const userData = userDoc.data();
       return userData.parentPin ? true : false;
     } catch (error) {
-      console.error('Error checking for PIN:', error);
+      logger.error('Error checking for PIN', error);
       return false;
     }
   },
@@ -83,10 +84,10 @@ const useKiddoQuestStore = create((set, get) => ({
         parentPin: hashedPin,
         pinUpdatedAt: serverTimestamp()
       });
-      
+
       return { success: true };
     } catch (error) {
-      console.error('Error setting PIN:', error);
+      logger.error('Error setting PIN', error);
       return { success: false, error: error.message };
     }
   },
@@ -118,7 +119,7 @@ const useKiddoQuestStore = create((set, get) => ({
         return { success: false, error: 'Incorrect PIN' };
       }
     } catch (error) {
-      console.error('Error verifying PIN:', error);
+      logger.error('Error verifying PIN', error);
       return { success: false, error: error.message };
     }
   },
@@ -130,29 +131,22 @@ const useKiddoQuestStore = create((set, get) => ({
   // --- Authentication Actions ---
   loginParent: async (email, password) => {
     set({ isLoadingAuth: true });
-    console.log('Starting login process for email:', email);
     try {
-      // Temporary UAT bypass for test account
-      const isTestAccount = email === 'test1756485868624@kiddoquest.com';
-      
-      // Check allowlist access (disabled during role-based transition)
-      if (!isTestAccount) {
-        // Check if user already exists in the active users collection
-        const userQuery = query(collection(db, 'users'), where('email', '==', email.toLowerCase()));
-        const userSnapshot = await getDocs(userQuery);
-        
-        // If user doesn't exist in the users collection, deny access
-        if (userSnapshot.empty) {
-          set({ isLoadingAuth: false });
-          throw new Error('Access denied. Your email is not authorized to use this application.');
-        }
-        
-        // Check if user is active
-        const userData = userSnapshot.docs[0].data();
-        if (userData.status === 'inactive') {
-          set({ isLoadingAuth: false });
-          throw new Error('Your account has been deactivated. Please contact the administrator.');
-        }
+      // Check if user exists in the active users collection
+      const userQuery = query(collection(db, 'users'), where('email', '==', email.toLowerCase()));
+      const userSnapshot = await getDocs(userQuery);
+
+      // If user doesn't exist in the users collection, deny access
+      if (userSnapshot.empty) {
+        set({ isLoadingAuth: false });
+        throw new Error('Access denied. Your email is not authorized to use this application.');
+      }
+
+      // Check if user is active
+      const userData = userSnapshot.docs[0].data();
+      if (userData.status === 'inactive') {
+        set({ isLoadingAuth: false });
+        throw new Error('Your account has been deactivated. Please contact the administrator.');
       }
       
       const result = await signInWithEmailAndPassword(auth, email, password);
@@ -217,7 +211,6 @@ const useKiddoQuestStore = create((set, get) => ({
       // Check if admin user (thetangstr@gmail.com)
       const isAdminEmail = user.email.toLowerCase() === 'thetangstr@gmail.com';
       
-      console.log('User logged in:', user.email, 'Is admin:', isAdminEmail);
       
       // Create or update user document (simplified approach)
       const parentUser = { 
@@ -243,13 +236,12 @@ const useKiddoQuestStore = create((set, get) => ({
         isLoadingAuth: false 
       });
       
-      console.log('User authenticated successfully:', parentUser);
       
       // Fetch user data after successful authentication
       await get().fetchParentData(parentUser.uid);
       return parentUser;
     } catch (error) {
-      console.error('Google login error:', error);
+      logger.error('Google login error', error);
       set({ isLoadingAuth: false, error: error.message });
       throw error;
     }
@@ -311,19 +303,17 @@ const useKiddoQuestStore = create((set, get) => ({
         editingQuestId: null, 
         editingRewardId: null, 
         isPasscodeModalOpen: false, 
-        passcodeError: '' 
+        passcodeError: ''
       });
     } catch (error) {
-      console.error("Error logging out:", error);
+      logger.error('Error logging out', error);
     }
   },
   
   checkAuthStatus: () => {
     set({ isLoadingAuth: true });
-    console.log('Starting auth check');
     
     return onAuthStateChanged(auth, async (user) => {
-      console.log('Auth state changed:', user ? `User logged in: ${user.email}` : 'No user');
       
       if (user) {
         // User is signed in
@@ -331,7 +321,6 @@ const useKiddoQuestStore = create((set, get) => ({
           // Check if admin user (thetangstr@gmail.com)
           const isAdminEmail = user.email.toLowerCase() === 'thetangstr@gmail.com';
           
-          console.log('Auth state changed - User:', user.email, 'Is admin:', isAdminEmail);
           
           // Create or update user document (simplified approach)
           const parentUser = { 
@@ -357,12 +346,10 @@ const useKiddoQuestStore = create((set, get) => ({
             currentView: parentUser.isAdmin ? 'adminDashboard' : 'parentDashboard'
           });
           
-          console.log('User authenticated via auth state change:', parentUser);
           
           // Fetch user data after successful authentication
           try {
             await get().fetchParentData(parentUser.uid);
-            console.log('Parent data fetched successfully');
           } catch (err) {
             console.error('Failed to fetch parent data:', err);
             // Continue anyway - user is still authenticated
@@ -793,13 +780,24 @@ const useKiddoQuestStore = create((set, get) => ({
         avatarUrl = await getDownloadURL(storageRef);
       }
       
-      // Add child profile to Firestore
+      // Add child profile to Firestore with gamification fields
       const childProfileRef = await addDoc(collection(db, 'childProfiles'), {
         name: profileData.name,
         avatar: avatarUrl,
         xp: profileData.xp || 0,
         parentId,
         theme: profileData.theme || 'default',
+        // NEW GAMIFICATION FIELDS
+        age: profileData.age || null,
+        birthDate: profileData.birthDate || null,
+        level: 1,
+        currentXP: 0,
+        totalXP: 0,
+        badges: [],
+        activeStreak: 0,
+        longestStreak: 0,
+        soundEnabled: profileData.soundEnabled !== false,
+        notificationsEnabled: profileData.notificationsEnabled !== false,
         createdAt: serverTimestamp()
       });
       
@@ -808,6 +806,17 @@ const useKiddoQuestStore = create((set, get) => ({
         name: profileData.name,
         avatar: avatarUrl,
         xp: profileData.xp || 0,
+        // NEW GAMIFICATION FIELDS
+        age: profileData.age || null,
+        birthDate: profileData.birthDate || null,
+        level: 1,
+        currentXP: 0,
+        totalXP: 0,
+        badges: [],
+        activeStreak: 0,
+        longestStreak: 0,
+        soundEnabled: profileData.soundEnabled !== false,
+        notificationsEnabled: profileData.notificationsEnabled !== false,
         theme: profileData.theme || 'default',
         parentId,
         createdAt: new Date().toISOString()
@@ -851,7 +860,6 @@ const useKiddoQuestStore = create((set, get) => ({
         updatedAt: serverTimestamp()
       });
       
-      console.log('Updated child profile with data:', dataToUpdate);
       
       // Update local state
       set(state => ({
@@ -890,9 +898,7 @@ const useKiddoQuestStore = create((set, get) => ({
 
   // --- Navigation Actions ---
   navigateTo: (view, params = {}) => {
-    console.log('🔄 navigateTo called:', { view, params, currentView: get().currentView });
     set({ currentView: view, ...params });
-    console.log('🔄 navigateTo completed, new state:', { currentView: get().currentView });
   },
   
   selectChildForDashboard: (childId) => {
@@ -1090,7 +1096,6 @@ const useKiddoQuestStore = create((set, get) => ({
   },
   
   updateReward: async (rewardId, updatedData) => {
-    console.log('🎁 Starting reward update:', { rewardId, updatedData });
     set({ isLoadingData: true });
     
     try {
@@ -1105,17 +1110,15 @@ const useKiddoQuestStore = create((set, get) => ({
       
       const reward = get().rewards.find(r => r.id === rewardId);
       if (!reward) {
-        console.error('❌ Reward not found in local state:', rewardId);
+        console.error('Reward not found in local state:', rewardId);
         throw new Error('Reward not found');
       }
       
-      console.log('✅ Found reward to update:', reward);
       
       // Handle image upload if it's a file
       let imageUrl = null;
       
       if (updatedData.imageFile && updatedData.imageFile instanceof File) {
-        console.log('📷 Uploading new image...');
         const parentId = get().currentUser?.uid;
         if (!parentId) {
           throw new Error('User not authenticated');
@@ -1124,7 +1127,6 @@ const useKiddoQuestStore = create((set, get) => ({
         const storageRef = ref(storage, `rewards/${parentId}/${Date.now()}_${updatedData.imageFile.name}`);
         await uploadBytes(storageRef, updatedData.imageFile);
         imageUrl = await getDownloadURL(storageRef);
-        console.log('✅ Image uploaded successfully:', imageUrl);
       }
       
       // Prepare data for Firestore (remove imageFile which needs special handling)
@@ -1135,7 +1137,6 @@ const useKiddoQuestStore = create((set, get) => ({
         Object.entries(dataToUpdate).filter(([_, value]) => value !== undefined)
       );
       
-      console.log('🔄 Updating Firestore document...', cleanedData);
       
       // Update reward in Firestore
       const updateData = {
@@ -1147,7 +1148,6 @@ const useKiddoQuestStore = create((set, get) => ({
       
       await updateDoc(doc(db, 'rewards', rewardId), updateData);
       
-      console.log('✅ Firestore update successful');
       
       // Update local state
       set(state => ({
@@ -1166,11 +1166,10 @@ const useKiddoQuestStore = create((set, get) => ({
         currentView: 'manageRewards'
       }));
       
-      console.log('✅ Reward update completed successfully');
       return { success: true, message: 'Reward updated successfully!' };
       
     } catch (error) {
-      console.error("❌ Error updating reward:", error);
+      console.error("Error updating reward:", error);
       set({ 
         isLoadingData: false,
         error: error.message || 'Failed to update reward'
@@ -1209,17 +1208,15 @@ const useKiddoQuestStore = create((set, get) => ({
   
   // --- Child Actions (Quest/Reward Claiming) ---
   claimQuest: async (questId, childId) => {
-    console.log('🎯 Attempting to claim quest:', { questId, childId });
     // Don't set isLoadingData here - it causes the entire UI to reload
     
     try {
       const quest = get().quests.find(q => q.id === questId);
       if (!quest) {
-        console.error('❌ Quest not found:', questId);
+        console.error('Quest not found:', questId);
         return { success: false, message: 'Quest not found' };
       }
       
-      console.log('📋 Quest details:', quest);
       
       // For daily quests, create a completion record instead of marking the quest as claimed
       if (quest.type === 'recurring' && quest.frequency === 'daily') {
@@ -1240,7 +1237,6 @@ const useKiddoQuestStore = create((set, get) => ({
         }
         
         // Create a completion record
-        console.log('📝 Creating quest completion record...');
         const completionRef = await addDoc(collection(db, 'questCompletions'), {
           questId,
           childId,
@@ -1252,7 +1248,6 @@ const useKiddoQuestStore = create((set, get) => ({
           parentId: quest.parentId
         });
         
-        console.log('✅ Quest completion created:', completionRef.id);
         
         // Update local state with the new completion
         const newCompletion = {

@@ -19,6 +19,7 @@
     "react-dom": "^19.1.0",
     "react-router-dom": "^6.28.1",
     "react-scripts": "5.0.1",
+    "recharts": "^2.12.7",
     "web-vitals": "^2.1.4",
     "zustand": "^5.0.4"
   },
@@ -32,6 +33,10 @@
     "test:e2e:ui": "playwright test --ui",
     "test:auto": "node scripts/auto-test-on-change.js",
     "test:auto:once": "node scripts/auto-test-on-change.js once",
+    "test:mcp": "node scripts/playwright-mcp-integration.js --suite",
+    "test:mcp:auto": "node scripts/playwright-mcp-integration.js --auto",
+    "test:mcp:hook": "node scripts/auto-playwright-mcp-hook.js",
+    "test:mcp:hook:once": "node scripts/auto-playwright-mcp-hook.js --once",
     "predeploy": "npm run test:e2e",
     "deploy": "npm run build && firebase deploy"
   },

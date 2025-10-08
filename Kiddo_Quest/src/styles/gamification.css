@@ -1,0 +1,383 @@
+/* Gamification Components CSS Animations and Styles */
+
+/* ===== SHARED ANIMATIONS ===== */
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.6);
+  }
+}
+
+@keyframes bounce-in {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ===== UTILITY CLASSES ===== */
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+.animate-twinkle {
+  animation: twinkle 2s infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.6s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease-out;
+}
+
+/* ===== BADGE GALLERY STYLES ===== */
+
+.badge-gallery .badge-card {
+  transition: all 0.3s ease;
+}
+
+.badge-gallery .badge-unlocked:hover {
+  transform: translateY(-2px);
+}
+
+.badge-gallery .badge-locked {
+  filter: grayscale(50%);
+}
+
+.badge-gallery .badge-locked:hover {
+  filter: grayscale(25%);
+}
+
+.badge-gallery .tooltip {
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.badge-gallery .tooltip-arrow {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid black;
+}
+
+/* ===== STREAK COUNTER STYLES ===== */
+
+.streak-counter .fire-effects {
+  position: relative;
+  pointer-events: none;
+}
+
+.streak-counter .spark {
+  position: absolute;
+  font-size: 12px;
+  animation: twinkle 1.5s infinite;
+}
+
+.streak-counter .spark-1 {
+  top: -10px;
+  left: -15px;
+  animation-delay: 0s;
+}
+
+.streak-counter .spark-2 {
+  top: -5px;
+  right: -10px;
+  animation-delay: 0.5s;
+}
+
+.streak-counter .spark-3 {
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation-delay: 1s;
+}
+
+/* ===== XP PROGRESS BAR STYLES ===== */
+
+.xp-progress-bar .progress-fill {
+  background: linear-gradient(90deg, 
+    rgba(59, 130, 246, 1) 0%, 
+    rgba(147, 51, 234, 1) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.xp-progress-bar .progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.4), 
+    transparent);
+  animation: shimmer 2s infinite;
+}
+
+/* ===== LEVEL UP CELEBRATION STYLES ===== */
+
+.level-up-celebration .confetti-particle {
+  border-radius: 2px;
+  animation: fall 3s linear infinite;
+}
+
+@keyframes fall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.level-up-celebration .firework {
+  animation: explode 1s ease-out;
+}
+
+@keyframes explode {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+.level-up-celebration .legendary-effects .golden-rays {
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  font-size: 4rem;
+  color: #ffd700;
+  animation: spin-slow 5s linear infinite;
+}
+
+.level-up-celebration .legendary-effects .star {
+  position: absolute;
+  font-size: 1.5rem;
+  color: #ffd700;
+  animation: twinkle 2s infinite;
+}
+
+/* ===== QUEST OF DAY STYLES ===== */
+
+.quest-of-day .quest-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.quest-of-day .quest-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.2), 
+    transparent);
+  animation: shimmer 3s infinite;
+  pointer-events: none;
+}
+
+.quest-of-day .quest-icon {
+  transition: transform 0.3s ease;
+}
+
+.quest-of-day .quest-card:hover .quest-icon {
+  transform: scale(1.1);
+}
+
+/* ===== PHOTO UPLOAD STYLES ===== */
+
+.photo-upload .upload-zone {
+  transition: all 0.3s ease;
+}
+
+.photo-upload .file-preview {
+  transition: all 0.3s ease;
+}
+
+.photo-upload .file-preview:hover {
+  transform: scale(1.02);
+}
+
+.photo-upload .file-preview img {
+  transition: all 0.3s ease;
+}
+
+.photo-upload .file-preview:hover img {
+  transform: scale(1.05);
+}
+
+/* ===== RESPONSIVE ADJUSTMENTS ===== */
+
+@media (max-width: 640px) {
+  .badge-gallery .badge-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .streak-counter .fire-icon {
+    font-size: 3rem;
+  }
+  
+  .level-up-celebration .celebration-content {
+    margin: 1rem;
+  }
+  
+  .quest-of-day .quest-card {
+    padding: 1rem;
+  }
+  
+  .photo-upload .file-preview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .badge-gallery .badge-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .level-up-celebration .celebration-content {
+    margin: 0.5rem;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer,
+  .animate-twinkle,
+  .animate-spin-slow,
+  .animate-float,
+  .animate-glow,
+  .animate-bounce-in,
+  .animate-slide-up,
+  .streak-counter .spark,
+  .level-up-celebration .confetti-particle,
+  .level-up-celebration .firework,
+  .quest-of-day .quest-card::before {
+    animation: none;
+  }
+  
+  .badge-gallery .badge-card,
+  .photo-upload .file-preview,
+  .quest-of-day .quest-icon {
+    transition: none;
+  }
+}
+
+/* ===== DARK MODE SUPPORT ===== */
+
+@media (prefers-color-scheme: dark) {
+  .badge-gallery .tooltip {
+    background-color: #1f2937;
+    color: #f9fafb;
+  }
+  
+  .badge-gallery .tooltip-arrow {
+    border-top-color: #1f2937;
+  }
+}
+
+/* ===== PRINT STYLES ===== */
+
+@media print {
+  .level-up-celebration,
+  .photo-upload,
+  .quest-of-day .action-section {
+    display: none;
+  }
+}

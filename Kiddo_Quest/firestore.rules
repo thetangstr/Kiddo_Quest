@@ -83,5 +83,69 @@ service cloud.firestore {
     match /adminLogs/{logId} {
       allow create, read, write, update, delete: if request.auth != null && isAdmin();
     }
+    
+    // NEW COLLECTIONS FOR PHASE 1 & 2
+    
+    // Levels - read-only for all authenticated users
+    match /levels/{levelId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isAdmin();
+    }
+    
+    // Badges - read for all authenticated, write only by system/admin
+    match /badges/{badgeId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isAdmin();
+    }
+    
+    // Streaks - parent can read/write their children's streaks
+    match /streaks/{streakId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.parentId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.parentId == request.auth.uid;
+      allow write: if request.auth != null && isAdmin();
+    }
+    
+    // Analytics Reports - parents can read their own reports
+    match /analyticsReports/{reportId} {
+      allow read: if request.auth != null && resource.data.familyId == request.auth.uid;
+      allow create, update: if request.auth != null && request.resource.data.familyId == request.auth.uid;
+      allow write: if request.auth != null && isAdmin();
+    }
+    
+    // Penalty Rules - parents can manage their own rules
+    match /penaltyRules/{ruleId} {
+      allow read, write: if request.auth != null && resource.data.familyId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.familyId == request.auth.uid;
+      allow write: if request.auth != null && isAdmin();
+    }
+    
+    // Family Goals - parents can manage their family goals
+    match /familyGoals/{goalId} {
+      allow read, write: if request.auth != null && resource.data.familyId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.familyId == request.auth.uid;
+      allow write: if request.auth != null && isAdmin();
+    }
+    
+    // Quest Templates - read for all authenticated, write only by admin
+    match /questTemplates/{templateId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isAdmin();
+    }
+    
+    // Photo Verifications - parents can manage their children's photos
+    match /photoVerifications/{photoId} {
+      allow read: if request.auth != null && resource.data.parentId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.parentId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.parentId == request.auth.uid;
+      allow write: if request.auth != null && isAdmin();
+    }
+    
+    // Notification Preferences - users manage their own preferences
+    match /notificationPreferences/{prefId} {
+      allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow write: if request.auth != null && isAdmin();
+    }
   }
 }

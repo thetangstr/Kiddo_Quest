@@ -243,16 +243,12 @@ export const RewardFormScreen = () => {
     }
     
     try {
-      console.log('🎁 Submitting reward form...', { editingRewardId, formData });
-      
       if (editingRewardId) {
         const result = await updateReward(editingRewardId, formData);
         setSubmitSuccess('Reward updated successfully! 🎉');
-        console.log('✅ Reward update result:', result);
       } else {
         const result = await addReward(formData);
         setSubmitSuccess('Reward created successfully! 🎉');
-        console.log('✅ Reward creation result:', result);
       }
       
       // Navigate back after a short delay to show success message
@@ -261,7 +257,7 @@ export const RewardFormScreen = () => {
       }, 1500);
       
     } catch (error) {
-      console.error('❌ Form submission error:', error);
+      console.error('Form submission error:', error);
       setSubmitError(error.message || 'An error occurred. Please try again.');
     }
   };
