@@ -193,8 +193,8 @@ jobs:
         
     - name: Create Firebase credentials file
       run: |
-        echo '${{ secrets.FIREBASE_TOKEN }}' > $HOME/.config/firebase/firebase_tools_token
         mkdir -p $HOME/.config/firebase
+        echo '${{ secrets.FIREBASE_TOKEN }}' > $HOME/.config/firebase/firebase_tools_token
         
     - name: Deploy to Firebase Hosting (Staging)
       run: |
@@ -239,7 +239,7 @@ jobs:
       run: |
         mkdir -p $HOME/.config/firebase
         echo '${{ secrets.FIREBASE_TOKEN }}' > $HOME/.config/firebase/firebase_tools_token
-        
+
     - name: Deploy to Firebase (Production)
       run: |
         cd Kiddo_Quest
