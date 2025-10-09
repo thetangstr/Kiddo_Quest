@@ -163,17 +163,18 @@ jobs:
     runs-on: ubuntu-latest
     name: Deploy to Staging
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
-        
+        cache-dependency-path: 'Kiddo_Quest/package-lock.json'
+
     - name: Install dependencies
       run: |
         cd Kiddo_Quest
@@ -206,17 +207,18 @@ jobs:
     name: Deploy to Production
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
-        
+        cache-dependency-path: 'Kiddo_Quest/package-lock.json'
+
     - name: Install dependencies
       run: |
         cd Kiddo_Quest
