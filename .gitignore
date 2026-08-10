@@ -35,6 +35,10 @@ firebase-debug.log
 *firebase-adminsdk*.json
 *service-account*.json
 *.serviceAccountKey.json
+serviceAccountKey*.json
+
+# Firebase Auth exports - contain password hashes, NEVER commit
+auth_config.json
 
 # IDE
 .vscode/

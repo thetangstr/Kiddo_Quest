@@ -1,5 +1,11 @@
 # KiddoQuest - Family Chore Management System
 
+> ## ⚠️ Repository status (August 2026)
+>
+> The **live KiddoQuest product is the self-hosted NAS app** (Express + Vite + SQLite) running at `192.168.86.31:8088`. Its source does not live in this repository.
+>
+> This repository contains the **legacy Firebase version** (`Kiddo_Quest/`, CRA + Firestore, project `kiddo-quest-de7b0`) and experimental mobile apps. The Firebase backend is **deprecated**: its deploy pipelines have been removed (KQ-4) and the project is pending archival. See `Kiddo_Quest/README.md`.
+
 Transform daily chores into exciting adventures with KiddoQuest. A comprehensive family app that motivates children through gamification, rewards, and progress tracking.
 
 ## 🌟 Overview
