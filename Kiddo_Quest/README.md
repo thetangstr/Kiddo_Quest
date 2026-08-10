@@ -1,8 +1,12 @@
 # Kiddo Quest
 
-Kiddo Quest is a gamified task management application designed for children and parents, where children can complete quests (tasks) to earn rewards.
-
-![Kiddo Quest](https://via.placeholder.com/800x400?text=Kiddo+Quest)
+> ## ⚠️ DEPRECATED — do not deploy
+>
+> This is the **old Firebase/Create React App version** of KiddoQuest (Firebase project `kiddo-quest-de7b0`). It was replaced by the self-hosted NAS app (Express + Vite + SQLite, served at `192.168.86.31:8088`), which is the live product and shares **no** code or data with this version.
+>
+> - The Firebase deploy pipelines for this app have been removed (KQ-4). Pushing to GitHub no longer deploys anything.
+> - `firestore.rules` / `storage.rules` here are retained for reference only, pending archival of the Firebase project.
+> - Kept in git for history. Do not merge changes from here into the NAS app.
 
 ## 🌟 Features
 
